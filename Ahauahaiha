@@ -1,0 +1,2004 @@
+local Players = game:GetService("Players")
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+local TweenService = game:GetService("TweenService")
+local HttpService = game:GetService("HttpService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local CoreGui = game:GetService("CoreGui")
+local TextService = game:GetService("TextService")
+local TeleportService = game:GetService("TeleportService")
+local NetworkClient = game:GetService("NetworkClient")
+
+local API_URL = "https://uraniumxploitgg.vercel.app/api/index.py"
+local MAX_RETRIES = 3
+local RETRY_DELAY = 1
+local REQUEST_TIMEOUT = 10
+local MAX_THREADS = 3
+local SCAN_DELAY = 0.3
+
+local DEEPSEEK_API_KEY = "sk-78fb2cccb9e446bdb582ff52cdfc74a8"
+local DEEPSEEK_API_URL = "https://api.deepseek.com/v1/chat/completions"
+local RATE_LIMIT_DELAY = 15
+local MAX_MESSAGE_LENGTH = 300
+local MAX_MESSAGES_PER_DAY = 100
+local lastMessageTime = 0
+local messageCountToday = 0
+local lastResetDate = os.date("*t").day
+
+local Colors = {
+    Primary = Color3.fromRGB(0, 140, 255),
+    Secondary = Color3.fromRGB(64, 180, 255),
+    DarkPrimary = Color3.fromRGB(0, 100, 200),
+    Background = Color3.fromRGB(8, 10, 15),
+    Surface = Color3.fromRGB(18, 22, 28),
+    SurfaceLight = Color3.fromRGB(28, 34, 42),
+    Card = Color3.fromRGB(23, 28, 35),
+    CardHover = Color3.fromRGB(33, 38, 45),
+    Text = Color3.fromRGB(255, 255, 255),
+    TextMuted = Color3.fromRGB(160, 170, 190),
+    TextSoft = Color3.fromRGB(200, 210, 230),
+    Success = Color3.fromRGB(40, 220, 120),
+    Error = Color3.fromRGB(240, 80, 80),
+    Warning = Color3.fromRGB(255, 190, 50)
+}
+
+local HWID = "Unknown"
+if gethwid then HWID = gethwid() else HWID = "USER_" .. tostring(Player.UserId) .. "_" .. math.random(1000, 9999) end
+
+local GameName = "Unknown"
+local GameIconUrl = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+local GameInfo = nil
+
+task.spawn(function() 
+    pcall(function() 
+        GameInfo = MarketplaceService:GetProductInfo(game.PlaceId) 
+        if GameInfo then 
+            GameName = GameInfo.Name
+            if GameInfo.Icon then
+                GameIconUrl = GameInfo.Icon
+            end
+        end 
+    end) 
+end)
+
+local function getRequestFunction() return syn and syn.request or http and http.request or request end
+
+local function sendRequest(body)
+    local requestFn = getRequestFunction()
+    if not requestFn then return nil, "Executor not supported" end
+    local options = {Url = API_URL, Method = "POST", Headers = {["Content-Type"] = "application/json"}, Body = HttpService:JSONEncode(body)}
+    if REQUEST_TIMEOUT then options.Timeout = REQUEST_TIMEOUT end
+    local success, resp = pcall(function() return requestFn(options) end)
+    if not success then return nil, "Request error: " .. tostring(resp) end
+    if resp.StatusCode ~= 200 then
+        local errData
+        pcall(function() errData = HttpService:JSONDecode(resp.Body) end)
+        local errMsg = (errData and errData.error) or ("HTTP " .. tostring(resp.StatusCode))
+        return nil, errMsg
+    end
+    local data
+    local parseSuccess, parsed = pcall(function() return HttpService:JSONDecode(resp.Body) end)
+    if not parseSuccess then return nil, "JSON parse error" end
+    return parsed, nil
+end
+
+local function ShowKeyDialog(callback)
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "KeyGui"
+    gui.Parent = CoreGui
+    gui.ResetOnSpawn = false
+
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 400, 0, 280)
+    frame.Position = UDim2.new(0.5, -200, 0.5, -140)
+    frame.BackgroundColor3 = Colors.Background
+    frame.BorderSizePixel = 0
+    frame.Active = true
+    frame.Parent = gui
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 20)
+    corner.Parent = frame
+    
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = Colors.Primary
+    stroke.Thickness = 2
+    stroke.Transparency = 0.3
+    stroke.Parent = frame
+
+    local gradient = Instance.new("UIGradient")
+    gradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(0.5, Colors.Text), ColorSequenceKeypoint.new(1, Colors.Primary)})
+    gradient.Rotation = 45
+    gradient.Transparency = NumberSequence.new(0.8)
+    gradient.Parent = stroke
+
+    local title = Instance.new("TextLabel")
+    title.Size = UDim2.new(1, 0, 0, 45)
+    title.Position = UDim2.new(0, 0, 0, 5)
+    title.BackgroundTransparency = 1
+    title.Text = "URANIUM XPLOIT"
+    title.TextColor3 = Colors.Text
+    title.Font = Enum.Font.LuckiestGuy
+    title.TextSize = 20
+    title.Parent = frame
+
+    local titleGradient = Instance.new("UIGradient")
+    titleGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(0.5, Colors.Text), ColorSequenceKeypoint.new(1, Colors.Primary)})
+    titleGradient.Rotation = 45
+    titleGradient.Parent = title
+    TweenService:Create(titleGradient, TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 225}):Play()
+
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(0.8, 0, 0, 45)
+    box.Position = UDim2.new(0.1, 0, 0.3, 0)
+    box.PlaceholderText = "URANIUM-XXXX-XXXX"
+    box.BackgroundColor3 = Colors.Surface
+    box.TextColor3 = Colors.Text
+    box.Font = Enum.Font.Gotham
+    box.TextSize = 16
+    box.Parent = frame
+    
+    local boxCorner = Instance.new("UICorner")
+    boxCorner.CornerRadius = UDim.new(0, 10)
+    boxCorner.Parent = box
+    
+    local boxStroke = Instance.new("UIStroke")
+    boxStroke.Color = Colors.Primary
+    boxStroke.Thickness = 1
+    boxStroke.Transparency = 0.5
+    boxStroke.Parent = box
+
+    local status = Instance.new("TextLabel")
+    status.Size = UDim2.new(1, 0, 0, 30)
+    status.Position = UDim2.new(0, 0, 0.55, 0)
+    status.BackgroundTransparency = 1
+    status.Text = ""
+    status.TextColor3 = Colors.Error
+    status.Font = Enum.Font.Gotham
+    status.TextSize = 12
+    status.Parent = frame
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.4, 0, 0, 45)
+    btn.Position = UDim2.new(0.3, 0, 0.75, 0)
+    btn.Text = "ACTIVATE"
+    btn.BackgroundColor3 = Colors.Primary
+    btn.TextColor3 = Colors.Text
+    btn.Font = Enum.Font.LuckiestGuy
+    btn.TextSize = 14
+    btn.Parent = frame
+    
+    local btnCorner = Instance.new("UICorner")
+    btnCorner.CornerRadius = UDim.new(0, 10)
+    btnCorner.Parent = btn
+
+    local btnGradient = Instance.new("UIGradient")
+    btnGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(0.5, Colors.Text), ColorSequenceKeypoint.new(1, Colors.Primary)})
+    btnGradient.Rotation = 45
+    btnGradient.Parent = btn
+    TweenService:Create(btnGradient, TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 225}):Play()
+
+    local dragging = false
+    local dragInput, dragStart, startPos
+    
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+        end
+    end)
+    
+    frame.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragging = false
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            local delta = input.Position - dragStart
+            frame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    btn.MouseButton1Click:Connect(function()
+        local key = box.Text:gsub("%s+", "")
+        if #key < 10 then status.Text = "Invalid key format" return end
+        status.Text = "Verifying..."
+        btn.Text = "..."
+        btn.Active = false
+        local data, err = sendRequest({ hwid = HWID, key = key })
+        if not data then
+            status.Text = "Error: " .. err
+            btn.Text = "ACTIVATE"
+            btn.Active = true
+            return
+        end
+        if data.success then
+            status.Text = "Success! Loading..."
+            task.wait(1)
+            gui:Destroy()
+            callback(true)
+        else
+            status.Text = "Error: " .. (data.error or "Unknown error")
+            btn.Text = "ACTIVATE"
+            btn.Active = true
+        end
+    end)
+end
+
+local function CheckWhitelistFirst(retryCount)
+    retryCount = retryCount or 1
+    local data, err = sendRequest({ hwid = HWID })
+    if not data then
+        if retryCount < MAX_RETRIES then
+            task.wait(RETRY_DELAY)
+            CheckWhitelistFirst(retryCount + 1)
+        else
+            ShowKeyDialog(function() LoadMainGUI() end)
+        end
+        return
+    end
+    if data.success then LoadMainGUI() else ShowKeyDialog(function() LoadMainGUI() end) end
+end
+
+function LoadMainGUI()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "UraniumUltimate"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.Parent = CoreGui
+
+    local GUI_SIZE = UDim2.new(0, 900, 0, 600)
+    local SIDEBAR_WIDTH = 250
+
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Size = GUI_SIZE
+    MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    MainFrame.BackgroundColor3 = Colors.Background
+    MainFrame.BorderSizePixel = 0
+    MainFrame.ClipsDescendants = true
+    MainFrame.Parent = ScreenGui
+
+    local MainCorner = Instance.new("UICorner")
+    MainCorner.CornerRadius = UDim.new(0, 20)
+    MainCorner.Parent = MainFrame
+
+    local MainStroke = Instance.new("UIStroke")
+    MainStroke.Color = Colors.Primary
+    MainStroke.Thickness = 2
+    MainStroke.Transparency = 0.5
+    MainStroke.Parent = MainFrame
+
+    local MainGradient = Instance.new("UIGradient")
+    MainGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(0.5, Colors.Text), ColorSequenceKeypoint.new(1, Colors.Primary)})
+    MainGradient.Rotation = 45
+    MainGradient.Transparency = NumberSequence.new(0.9)
+    MainGradient.Parent = MainStroke
+    TweenService:Create(MainGradient, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 225}):Play()
+
+    local TopBar = Instance.new("Frame")
+    TopBar.Name = "TopBar"
+    TopBar.Size = UDim2.new(1, 0, 0, 60)
+    TopBar.BackgroundColor3 = Colors.Surface
+    TopBar.BorderSizePixel = 0
+    TopBar.Parent = MainFrame
+
+    local TopBarCorner = Instance.new("UICorner")
+    TopBarCorner.CornerRadius = UDim.new(0, 20)
+    TopBarCorner.Parent = TopBar
+
+    local TopBarGradient = Instance.new("UIGradient")
+    TopBarGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(0.5, Colors.Text), ColorSequenceKeypoint.new(1, Colors.Primary)})
+    TopBarGradient.Rotation = 45
+    TopBarGradient.Transparency = NumberSequence.new(0.85)
+    TopBarGradient.Parent = TopBar
+    TweenService:Create(TopBarGradient, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 225}):Play()
+
+    local Logo = Instance.new("ImageLabel")
+    Logo.BackgroundTransparency = 1
+    Logo.Image = "rbxassetid://120943999903946"
+    Logo.Size = UDim2.new(0, 40, 0, 40)
+    Logo.Position = UDim2.new(0, 15, 0.5, -20)
+    Logo.ImageColor3 = Colors.Primary
+    Logo.Parent = TopBar
+
+    local Title = Instance.new("TextLabel")
+    Title.Text = "URANIUM"
+    Title.TextSize = 22
+    Title.TextColor3 = Colors.Text
+    Title.Font = Enum.Font.LuckiestGuy
+    Title.BackgroundTransparency = 1
+    Title.Size = UDim2.new(0, 120, 0, 26)
+    Title.Position = UDim2.new(0, 60, 0.5, -15)
+    Title.TextXAlignment = Enum.TextXAlignment.Left
+    Title.Parent = TopBar
+
+    local TitleGradient = Instance.new("UIGradient")
+    TitleGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(0.5, Colors.Text), ColorSequenceKeypoint.new(1, Colors.Primary)})
+    TitleGradient.Rotation = 45
+    TitleGradient.Parent = Title
+    TweenService:Create(TitleGradient, TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 225}):Play()
+
+    local Version = Instance.new("TextLabel")
+    Version.Text = "v5.0"
+    Version.TextSize = 11
+    Version.TextColor3 = Colors.TextMuted
+    Version.Font = Enum.Font.Gotham
+    Version.BackgroundTransparency = 1
+    Version.Size = UDim2.new(0, 40, 0, 18)
+    Version.Position = UDim2.new(0, 60, 0.5, 9)
+    Version.TextXAlignment = Enum.TextXAlignment.Left
+    Version.Parent = TopBar
+
+    local ButtonFrame = Instance.new("Frame")
+    ButtonFrame.BackgroundTransparency = 1
+    ButtonFrame.Size = UDim2.new(0, 550, 0, 38)
+    ButtonFrame.Position = UDim2.new(0.5, -275, 0.5, -19)
+    ButtonFrame.Parent = TopBar
+
+    local function createHeaderButton(name, pos)
+        local btn = Instance.new("TextButton")
+        btn.Size = UDim2.new(0, 100, 0, 38)
+        btn.Position = UDim2.new(0, pos, 0, 0)
+        btn.BackgroundColor3 = Colors.SurfaceLight
+        btn.BackgroundTransparency = 0.4
+        btn.Text = name
+        btn.TextColor3 = Colors.Text
+        btn.Font = Enum.Font.LuckiestGuy
+        btn.TextSize = 13
+        btn.Name = name.."Btn"
+        btn.Parent = ButtonFrame
+        
+        local btnCorner = Instance.new("UICorner")
+        btnCorner.CornerRadius = UDim.new(0, 10)
+        btnCorner.Parent = btn
+        
+        local btnStroke = Instance.new("UIStroke")
+        btnStroke.Color = Colors.Primary
+        btnStroke.Thickness = 1
+        btnStroke.Transparency = 0.6
+        btnStroke.Parent = btn
+        
+        btn.MouseEnter:Connect(function()
+            TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Primary, BackgroundTransparency = 0}):Play()
+            TweenService:Create(btnStroke, TweenInfo.new(0.2), {Transparency = 0}):Play()
+        end)
+        
+        btn.MouseLeave:Connect(function()
+            TweenService:Create(btn, TweenInfo.new(0.3), {BackgroundColor3 = Colors.SurfaceLight, BackgroundTransparency = 0.4}):Play()
+            TweenService:Create(btnStroke, TweenInfo.new(0.3), {Transparency = 0.6}):Play()
+        end)
+        
+        return btn
+    end
+
+    local DashboardBtn = createHeaderButton("DASHBOARD", 0)
+    local ScanBtn = createHeaderButton("SCAN SERVER", 110)
+    local SearchBtn = createHeaderButton("SEARCH", 220)
+    local SettingsBtn = createHeaderButton("SETTINGS", 330)
+    local AIBtn = createHeaderButton("AI", 440)
+
+    local ControlFrame = Instance.new("Frame")
+    ControlFrame.BackgroundTransparency = 1
+    ControlFrame.Size = UDim2.new(0, 70, 0, 32)
+    ControlFrame.Position = UDim2.new(1, -80, 0.5, -16)
+    ControlFrame.Parent = TopBar
+
+    local MinimizeBtn = Instance.new("TextButton")
+    MinimizeBtn.Size = UDim2.new(0, 32, 0, 32)
+    MinimizeBtn.Position = UDim2.new(0, 0, 0, 0)
+    MinimizeBtn.BackgroundColor3 = Colors.SurfaceLight
+    MinimizeBtn.Text = "−"
+    MinimizeBtn.TextColor3 = Colors.Text
+    MinimizeBtn.TextSize = 22
+    MinimizeBtn.Font = Enum.Font.Gotham
+    MinimizeBtn.BackgroundTransparency = 0.3
+    MinimizeBtn.Parent = ControlFrame
+    
+    local MinimizeCorner = Instance.new("UICorner")
+    MinimizeCorner.CornerRadius = UDim.new(0, 8)
+    MinimizeCorner.Parent = MinimizeBtn
+    
+    local CloseBtn = Instance.new("TextButton")
+    CloseBtn.Size = UDim2.new(0, 32, 0, 32)
+    CloseBtn.Position = UDim2.new(0, 38, 0, 0)
+    CloseBtn.BackgroundColor3 = Colors.Error
+    CloseBtn.Text = "x"
+    CloseBtn.TextColor3 = Colors.Text
+    CloseBtn.TextSize = 20
+    CloseBtn.Font = Enum.Font.Gotham
+    CloseBtn.BackgroundTransparency = 0.1
+    CloseBtn.Parent = ControlFrame
+    
+    local CloseCorner = Instance.new("UICorner")
+    CloseCorner.CornerRadius = UDim.new(0, 8)
+    CloseCorner.Parent = CloseBtn
+
+    local LeftPanel = Instance.new("Frame")
+    LeftPanel.BackgroundColor3 = Colors.Surface
+    LeftPanel.Size = UDim2.new(0, SIDEBAR_WIDTH, 1, -60)
+    LeftPanel.Position = UDim2.new(0, 0, 0, 60)
+    LeftPanel.Parent = MainFrame
+    
+    local LeftCorner = Instance.new("UICorner")
+    LeftCorner.CornerRadius = UDim.new(0, 16)
+    LeftCorner.Parent = LeftPanel
+
+    local LeftGradient = Instance.new("UIGradient")
+    LeftGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(0.5, Colors.Text), ColorSequenceKeypoint.new(1, Colors.Primary)})
+    LeftGradient.Rotation = 45
+    LeftGradient.Transparency = NumberSequence.new(0.9)
+    LeftGradient.Parent = LeftPanel
+    TweenService:Create(LeftGradient, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 225}):Play()
+
+    local LeftHeader = Instance.new("Frame")
+    LeftHeader.BackgroundColor3 = Colors.SurfaceLight
+    LeftHeader.Size = UDim2.new(1, 0, 0, 55)
+    LeftHeader.Parent = LeftPanel
+    
+    local LeftHeaderCorner = Instance.new("UICorner")
+    LeftHeaderCorner.CornerRadius = UDim.new(0, 16)
+    LeftHeaderCorner.Parent = LeftHeader
+    
+    local LeftHeaderGradient = Instance.new("UIGradient")
+    LeftHeaderGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(0.5, Colors.Text), ColorSequenceKeypoint.new(1, Colors.Primary)})
+    LeftHeaderGradient.Rotation = 45
+    LeftHeaderGradient.Transparency = NumberSequence.new(0.8)
+    LeftHeaderGradient.Parent = LeftHeader
+    TweenService:Create(LeftHeaderGradient, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 225}):Play()
+    
+    local LeftTitle = Instance.new("TextLabel")
+    LeftTitle.Text = "LEAKED PLAYERS"
+    LeftTitle.Size = UDim2.new(1, -70, 1, 0)
+    LeftTitle.Position = UDim2.new(0, 15, 0, 0)
+    LeftTitle.BackgroundTransparency = 1
+    LeftTitle.TextColor3 = Colors.Text
+    LeftTitle.Font = Enum.Font.LuckiestGuy
+    LeftTitle.TextSize = 15
+    LeftTitle.TextXAlignment = Enum.TextXAlignment.Left
+    LeftTitle.Parent = LeftHeader
+
+    local LeakedCount = Instance.new("TextLabel")
+    LeakedCount.Text = "0"
+    LeakedCount.BackgroundColor3 = Colors.Primary
+    LeakedCount.TextColor3 = Colors.Text
+    LeakedCount.Size = UDim2.new(0, 35, 0, 26)
+    LeakedCount.Position = UDim2.new(1, -45, 0.5, -13)
+    LeakedCount.Font = Enum.Font.LuckiestGuy
+    LeakedCount.TextSize = 14
+    LeakedCount.Parent = LeftHeader
+    
+    local LeakedCountCorner = Instance.new("UICorner")
+    LeakedCountCorner.CornerRadius = UDim.new(0, 8)
+    LeakedCountCorner.Parent = LeakedCount
+
+    local LeakedList = Instance.new("ScrollingFrame")
+    LeakedList.Size = UDim2.new(1, -10, 1, -65)
+    LeakedList.Position = UDim2.new(0, 5, 0, 60)
+    LeakedList.BackgroundTransparency = 1
+    LeakedList.BorderSizePixel = 0
+    LeakedList.ScrollBarThickness = 4
+    LeakedList.ScrollBarImageColor3 = Colors.Primary
+    LeakedList.CanvasSize = UDim2.new(0, 0, 0, 0)
+    LeakedList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    LeakedList.ScrollBarImageTransparency = 0
+    LeakedList.ElasticBehavior = Enum.ElasticBehavior.Always
+    LeakedList.Parent = LeftPanel
+    
+    local LeakedListLayout = Instance.new("UIListLayout")
+    LeakedListLayout.Padding = UDim.new(0, 8)
+    LeakedListLayout.SortOrder = Enum.SortOrder.Name
+    LeakedListLayout.Parent = LeakedList
+
+    LeakedListLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        LeakedList.CanvasSize = UDim2.new(0, 0, 0, LeakedListLayout.AbsoluteContentSize.Y * 1.25 + 20)
+    end)
+
+    local ProfileFrame = Instance.new("Frame")
+    ProfileFrame.Size = UDim2.new(1, -20, 0, 65)
+    ProfileFrame.Position = UDim2.new(0, 10, 1, -70)
+    ProfileFrame.BackgroundColor3 = Colors.SurfaceLight
+    ProfileFrame.BackgroundTransparency = 0.2
+    ProfileFrame.Parent = LeftPanel
+
+    local ProfileCorner = Instance.new("UICorner")
+    ProfileCorner.CornerRadius = UDim.new(0, 12)
+    ProfileCorner.Parent = ProfileFrame
+
+    local ProfileIcon = Instance.new("ImageLabel")
+    ProfileIcon.Size = UDim2.new(0, 45, 0, 45)
+    ProfileIcon.Position = UDim2.new(0, 10, 0.5, -22.5)
+    ProfileIcon.BackgroundColor3 = Colors.Primary
+    ProfileIcon.BorderSizePixel = 0
+    ProfileIcon.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=".. Player.UserId .."&width=150&height=150&format=png"
+    ProfileIcon.Parent = ProfileFrame
+
+    local ProfileIconCorner = Instance.new("UICorner")
+    ProfileIconCorner.CornerRadius = UDim.new(1, 0)
+    ProfileIconCorner.Parent = ProfileIcon
+
+    local ProfileName = Instance.new("TextLabel")
+    ProfileName.Size = UDim2.new(1, -65, 0, 24)
+    ProfileName.Position = UDim2.new(0, 60, 0.5, -15)
+    ProfileName.BackgroundTransparency = 1
+    ProfileName.Text = Player.Name
+    ProfileName.TextColor3 = Colors.Text
+    ProfileName.TextSize = 15
+    ProfileName.Font = Enum.Font.LuckiestGuy
+    ProfileName.TextXAlignment = Enum.TextXAlignment.Left
+    ProfileName.Parent = ProfileFrame
+
+    local ProfileStatus = Instance.new("TextLabel")
+    ProfileStatus.Size = UDim2.new(1, -65, 0, 18)
+    ProfileStatus.Position = UDim2.new(0, 60, 0.5, 7)
+    ProfileStatus.BackgroundTransparency = 1
+    ProfileStatus.Text = "ID: " .. Player.UserId
+    ProfileStatus.TextColor3 = Colors.TextMuted
+    ProfileStatus.TextSize = 11
+    ProfileStatus.Font = Enum.Font.Gotham
+    ProfileStatus.TextXAlignment = Enum.TextXAlignment.Left
+    ProfileStatus.Parent = ProfileFrame
+
+    local RightPanel = Instance.new("Frame")
+    RightPanel.BackgroundColor3 = Colors.Surface
+    RightPanel.Size = UDim2.new(1, -(SIDEBAR_WIDTH + 20), 1, -70)
+    RightPanel.Position = UDim2.new(0, SIDEBAR_WIDTH + 15, 0, 65)
+    RightPanel.Parent = MainFrame
+    
+    local RightCorner = Instance.new("UICorner")
+    RightCorner.CornerRadius = UDim.new(0, 16)
+    RightCorner.Parent = RightPanel
+
+    local RightGradient = Instance.new("UIGradient")
+    RightGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(0.5, Colors.Text), ColorSequenceKeypoint.new(1, Colors.Primary)})
+    RightGradient.Rotation = 45
+    RightGradient.Transparency = NumberSequence.new(0.9)
+    RightGradient.Parent = RightPanel
+    TweenService:Create(RightGradient, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 225}):Play()
+
+    local ContentFrame = Instance.new("Frame")
+    ContentFrame.Size = UDim2.new(1, -20, 1, -20)
+    ContentFrame.Position = UDim2.new(0, 10, 0, 10)
+    ContentFrame.BackgroundTransparency = 1
+    ContentFrame.Parent = RightPanel
+
+    local MainScrollFrame = Instance.new("ScrollingFrame")
+    MainScrollFrame.Name = "MainScrollFrame"
+    MainScrollFrame.Size = UDim2.new(1, 0, 1, 0)
+    MainScrollFrame.BackgroundTransparency = 1
+    MainScrollFrame.BorderSizePixel = 0
+    MainScrollFrame.ScrollBarThickness = 6
+    MainScrollFrame.ScrollBarImageColor3 = Colors.Primary
+    MainScrollFrame.CanvasSize = UDim2.new(0, 0, 0, 0)
+    MainScrollFrame.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    MainScrollFrame.Parent = ContentFrame
+
+    local MainContent = Instance.new("Frame")
+    MainContent.Name = "MainContent"
+    MainContent.Size = UDim2.new(1, 0, 0, 0)
+    MainContent.BackgroundTransparency = 1
+    MainContent.Visible = true
+    MainContent.Parent = MainScrollFrame
+
+    local StatsGrid = Instance.new("Frame")
+    StatsGrid.Size = UDim2.new(1, 0, 0, 120)
+    StatsGrid.BackgroundTransparency = 1
+    StatsGrid.Parent = MainContent
+
+    local function createStatCard(title, value, icon, color, xPos)
+        local card = Instance.new("Frame")
+        card.Size = UDim2.new(0.3, -5, 0.9, 0)
+        card.Position = UDim2.new(xPos, 0, 0.05, 0)
+        card.BackgroundColor3 = Colors.Card
+        card.Parent = StatsGrid
+        
+        local cardCorner = Instance.new("UICorner")
+        cardCorner.CornerRadius = UDim.new(0, 12)
+        cardCorner.Parent = card
+        
+        local cardStroke = Instance.new("UIStroke")
+        cardStroke.Color = Colors.Primary
+        cardStroke.Thickness = 1
+        cardStroke.Transparency = 0.7
+        cardStroke.Parent = card
+        
+        local cardGradient = Instance.new("UIGradient")
+        cardGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(0.5, Colors.Text), ColorSequenceKeypoint.new(1, Colors.Primary)})
+        cardGradient.Rotation = 45
+        cardGradient.Transparency = NumberSequence.new(0.9)
+        cardGradient.Parent = cardStroke
+        TweenService:Create(cardGradient, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 225}):Play()
+        
+        if title ~= "QUEUE" then
+            local cardIcon = Instance.new("ImageLabel")
+            cardIcon.Size = UDim2.new(0, 36, 0, 36)
+            cardIcon.Position = UDim2.new(0, 12, 0.5, -18)
+            cardIcon.BackgroundTransparency = 1
+            cardIcon.Image = "rbxassetid://"..icon
+            cardIcon.ImageColor3 = color or Colors.Primary
+            cardIcon.Parent = card
+        end
+        
+        local cardTitle = Instance.new("TextLabel")
+        cardTitle.Size = UDim2.new(1, -60, 0, 18)
+        cardTitle.Position = UDim2.new(0, title == "QUEUE" and 12 or 52, 0, 20)
+        cardTitle.BackgroundTransparency = 1
+        cardTitle.Text = title
+        cardTitle.TextColor3 = Colors.TextMuted
+        cardTitle.Font = Enum.Font.LuckiestGuy
+        cardTitle.TextSize = 14
+        cardTitle.TextXAlignment = Enum.TextXAlignment.Left
+        cardTitle.Parent = card
+        
+        local cardValue = Instance.new("TextLabel")
+        cardValue.Size = UDim2.new(1, -60, 0, 30)
+        cardValue.Position = UDim2.new(0, title == "QUEUE" and 12 or 52, 0, 38)
+        cardValue.BackgroundTransparency = 1
+        cardValue.Text = value
+        cardValue.TextColor3 = Colors.Text
+        cardValue.Font = Enum.Font.GothamBold
+        cardValue.TextSize = 24
+        cardValue.TextXAlignment = Enum.TextXAlignment.Left
+        cardValue.Parent = card
+        
+        return {Card = card, Value = cardValue}
+    end
+
+    local ScannedStat = createStatCard("SCANNED", "0", "10709840719", Colors.Primary, 0)
+    local LeakedStat = createStatCard("LEAKED", "0", "10709815519", Colors.Success, 0.35)
+    local QueueStat = createStatCard("QUEUE", "0", "10709790319", Colors.Warning, 0.7)
+
+    local ScanLogTitle = Instance.new("TextLabel")
+    ScanLogTitle.Size = UDim2.new(1, 0, 0, 30)
+    ScanLogTitle.Position = UDim2.new(0, 0, 0, 140)
+    ScanLogTitle.BackgroundTransparency = 1
+    ScanLogTitle.Text = "SCAN LOG"
+    ScanLogTitle.TextColor3 = Colors.TextSoft
+    ScanLogTitle.Font = Enum.Font.LuckiestGuy
+    ScanLogTitle.TextSize = 15
+    ScanLogTitle.TextXAlignment = Enum.TextXAlignment.Left
+    ScanLogTitle.Parent = MainContent
+
+    local ScanLog = Instance.new("ScrollingFrame")
+    ScanLog.Size = UDim2.new(1, 0, 0, 100)
+    ScanLog.Position = UDim2.new(0, 0, 0, 170)
+    ScanLog.BackgroundColor3 = Colors.Card
+    ScanLog.BorderSizePixel = 0
+    ScanLog.ScrollBarThickness = 4
+    ScanLog.ScrollBarImageColor3 = Colors.Primary
+    ScanLog.CanvasSize = UDim2.new(0, 0, 0, 0)
+    ScanLog.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    ScanLog.Parent = MainContent
+    
+    local ScanLogCorner = Instance.new("UICorner")
+    ScanLogCorner.CornerRadius = UDim.new(0, 10)
+    ScanLogCorner.Parent = ScanLog
+    
+    local ScanLogLayout = Instance.new("UIListLayout")
+    ScanLogLayout.Padding = UDim.new(0, 4)
+    ScanLogLayout.Parent = ScanLog
+    
+    local ScanLogPadding = Instance.new("UIPadding")
+    ScanLogPadding.PaddingTop = UDim.new(0, 8)
+    ScanLogPadding.PaddingBottom = UDim.new(0, 8)
+    ScanLogPadding.PaddingLeft = UDim.new(0, 8)
+    ScanLogPadding.PaddingRight = UDim.new(0, 8)
+    ScanLogPadding.Parent = ScanLog
+
+    local DetailTitle = Instance.new("TextLabel")
+    DetailTitle.Size = UDim2.new(1, 0, 0, 30)
+    DetailTitle.Position = UDim2.new(0, 0, 0, 280)
+    DetailTitle.BackgroundTransparency = 1
+    DetailTitle.Text = "LEAK DETAILS"
+    DetailTitle.TextColor3 = Colors.TextSoft
+    DetailTitle.Font = Enum.Font.LuckiestGuy
+    DetailTitle.TextSize = 15
+    DetailTitle.TextXAlignment = Enum.TextXAlignment.Left
+    DetailTitle.Parent = MainContent
+
+    local DetailScroll = Instance.new("ScrollingFrame")
+    DetailScroll.Size = UDim2.new(1, 0, 0, 200)
+    DetailScroll.Position = UDim2.new(0, 0, 0, 310)
+    DetailScroll.BackgroundColor3 = Colors.Card
+    DetailScroll.BorderSizePixel = 0
+    DetailScroll.ScrollBarThickness = 4
+    DetailScroll.ScrollBarImageColor3 = Colors.Primary
+    DetailScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+    DetailScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    DetailScroll.Parent = MainContent
+    
+    local DetailCorner = Instance.new("UICorner")
+    DetailCorner.CornerRadius = UDim.new(0, 12)
+    DetailCorner.Parent = DetailScroll
+    
+    local DetailLayout = Instance.new("UIListLayout")
+    DetailLayout.Padding = UDim.new(0, 10)
+    DetailLayout.Parent = DetailScroll
+    
+    local DetailPadding = Instance.new("UIPadding")
+    DetailPadding.PaddingTop = UDim.new(0, 10)
+    DetailPadding.PaddingBottom = UDim.new(0, 10)
+    DetailPadding.PaddingLeft = UDim.new(0, 10)
+    DetailPadding.PaddingRight = UDim.new(0, 10)
+    DetailPadding.Parent = DetailScroll
+
+    local GameInfoTitle = Instance.new("TextLabel")
+    GameInfoTitle.Size = UDim2.new(1, 0, 0, 30)
+    GameInfoTitle.Position = UDim2.new(0, 0, 0, 520)
+    GameInfoTitle.BackgroundTransparency = 1
+    GameInfoTitle.Text = "GAME INFO"
+    GameInfoTitle.TextColor3 = Colors.TextSoft
+    GameInfoTitle.Font = Enum.Font.LuckiestGuy
+    GameInfoTitle.TextSize = 15
+    GameInfoTitle.TextXAlignment = Enum.TextXAlignment.Left
+    GameInfoTitle.Parent = MainContent
+
+    local GameInfoFrame = Instance.new("Frame")
+    GameInfoFrame.Size = UDim2.new(1, 0, 0, 150)
+    GameInfoFrame.Position = UDim2.new(0, 0, 0, 550)
+    GameInfoFrame.BackgroundColor3 = Colors.Card
+    GameInfoFrame.Parent = MainContent
+
+    local GameInfoCorner = Instance.new("UICorner")
+    GameInfoCorner.CornerRadius = UDim.new(0, 12)
+    GameInfoCorner.Parent = GameInfoFrame
+
+    local GameIcon = Instance.new("ImageLabel")
+    GameIcon.Size = UDim2.new(0, 100, 0, 100)
+    GameIcon.Position = UDim2.new(0, 20, 0.5, -50)
+    GameIcon.BackgroundColor3 = Colors.Surface
+    GameIcon.Image = GameIconUrl
+    GameIcon.Parent = GameInfoFrame
+
+    local GameIconCorner = Instance.new("UICorner")
+    GameIconCorner.CornerRadius = UDim.new(0, 12)
+    GameIconCorner.Parent = GameIcon
+
+    local GameNameLabel = Instance.new("TextLabel")
+    GameNameLabel.Size = UDim2.new(1, -140, 0, 25)
+    GameNameLabel.Position = UDim2.new(0, 130, 0, 20)
+    GameNameLabel.BackgroundTransparency = 1
+    GameNameLabel.Text = "Name: " .. GameName
+    GameNameLabel.TextColor3 = Colors.Text
+    GameNameLabel.Font = Enum.Font.GothamBold
+    GameNameLabel.TextSize = 16
+    GameNameLabel.TextXAlignment = Enum.TextXAlignment.Left
+    GameNameLabel.Parent = GameInfoFrame
+
+    local GameIdLabel = Instance.new("TextLabel")
+    GameIdLabel.Size = UDim2.new(1, -140, 0, 20)
+    GameIdLabel.Position = UDim2.new(0, 130, 0, 45)
+    GameIdLabel.BackgroundTransparency = 1
+    GameIdLabel.Text = "Game ID: " .. game.PlaceId
+    GameIdLabel.TextColor3 = Colors.TextMuted
+    GameIdLabel.Font = Enum.Font.Gotham
+    GameIdLabel.TextSize = 14
+    GameIdLabel.TextXAlignment = Enum.TextXAlignment.Left
+    GameIdLabel.Parent = GameInfoFrame
+
+    local ServerPlayersLabel = Instance.new("TextLabel")
+    ServerPlayersLabel.Size = UDim2.new(1, -140, 0, 20)
+    ServerPlayersLabel.Position = UDim2.new(0, 130, 0, 65)
+    ServerPlayersLabel.BackgroundTransparency = 1
+    ServerPlayersLabel.Text = "Server Players: " .. #Players:GetPlayers()
+    ServerPlayersLabel.TextColor3 = Colors.TextMuted
+    ServerPlayersLabel.Font = Enum.Font.Gotham
+    ServerPlayersLabel.TextSize = 14
+    ServerPlayersLabel.TextXAlignment = Enum.TextXAlignment.Left
+    ServerPlayersLabel.Parent = GameInfoFrame
+
+    local MaxPlayersLabel = Instance.new("TextLabel")
+    MaxPlayersLabel.Size = UDim2.new(1, -140, 0, 20)
+    MaxPlayersLabel.Position = UDim2.new(0, 130, 0, 85)
+    MaxPlayersLabel.BackgroundTransparency = 1
+    MaxPlayersLabel.Text = "Max Players: " .. (GameInfo and GameInfo.MaxPlayers or "Unknown")
+    MaxPlayersLabel.TextColor3 = Colors.TextMuted
+    MaxPlayersLabel.Font = Enum.Font.Gotham
+    MaxPlayersLabel.TextSize = 14
+    MaxPlayersLabel.TextXAlignment = Enum.TextXAlignment.Left
+    MaxPlayersLabel.Parent = GameInfoFrame
+
+    local JobIdLabel = Instance.new("TextLabel")
+    JobIdLabel.Size = UDim2.new(1, -140, 0, 20)
+    JobIdLabel.Position = UDim2.new(0, 130, 0, 105)
+    JobIdLabel.BackgroundTransparency = 1
+    JobIdLabel.Text = "Job ID: " .. game.JobId
+    JobIdLabel.TextColor3 = Colors.TextMuted
+    JobIdLabel.Font = Enum.Font.Gotham
+    JobIdLabel.TextSize = 12
+    JobIdLabel.TextXAlignment = Enum.TextXAlignment.Left
+    JobIdLabel.Parent = GameInfoFrame
+
+    local ServerUptime = Instance.new("TextLabel")
+    ServerUptime.Size = UDim2.new(1, -140, 0, 20)
+    ServerUptime.Position = UDim2.new(0, 130, 0, 125)
+    ServerUptime.BackgroundTransparency = 1
+    ServerUptime.Text = "Uptime: " .. math.floor(workspace.DistributedGameTime/60) .. " minutes"
+    ServerUptime.TextColor3 = Colors.TextMuted
+    ServerUptime.Font = Enum.Font.Gotham
+    ServerUptime.TextSize = 12
+    ServerUptime.TextXAlignment = Enum.TextXAlignment.Left
+    ServerUptime.Parent = GameInfoFrame
+
+    Players.PlayerAdded:Connect(function()
+        ServerPlayersLabel.Text = "Server Players: " .. #Players:GetPlayers()
+    end)
+    
+    Players.PlayerRemoving:Connect(function()
+        ServerPlayersLabel.Text = "Server Players: " .. #Players:GetPlayers()
+    end)
+
+    task.spawn(function()
+        while true do
+            task.wait(60)
+            ServerUptime.Text = "Uptime: " .. math.floor(workspace.DistributedGameTime/60) .. " minutes"
+        end
+    end)
+
+    local SearchPanel = Instance.new("Frame")
+    SearchPanel.Name = "SearchPanel"
+    SearchPanel.Size = UDim2.new(1, 0, 1, 0)
+    SearchPanel.BackgroundTransparency = 1
+    SearchPanel.Visible = false
+    SearchPanel.Parent = ContentFrame
+
+    local SearchTitle = Instance.new("TextLabel")
+    SearchTitle.Size = UDim2.new(1, 0, 0, 40)
+    SearchTitle.BackgroundTransparency = 1
+    SearchTitle.Text = "DATABASE SEARCH"
+    SearchTitle.TextColor3 = Colors.Text
+    SearchTitle.Font = Enum.Font.LuckiestGuy
+    SearchTitle.TextSize = 20
+    SearchTitle.TextXAlignment = Enum.TextXAlignment.Left
+    SearchTitle.Parent = SearchPanel
+
+    local SearchBox = Instance.new("TextBox")
+    SearchBox.Size = UDim2.new(1, 0, 0, 55)
+    SearchBox.Position = UDim2.new(0, 0, 0, 50)
+    SearchBox.BackgroundColor3 = Colors.SurfaceLight
+    SearchBox.TextColor3 = Colors.Text
+    SearchBox.PlaceholderColor3 = Colors.TextMuted
+    SearchBox.PlaceholderText = "Enter username, email or password..."
+    SearchBox.Text = ""
+    SearchBox.Font = Enum.Font.Gotham
+    SearchBox.TextSize = 16
+    SearchBox.ClearTextOnFocus = false
+    SearchBox.Parent = SearchPanel
+    
+    local SearchCorner = Instance.new("UICorner")
+    SearchCorner.CornerRadius = UDim.new(0, 12)
+    SearchCorner.Parent = SearchBox
+    
+    local SearchStroke = Instance.new("UIStroke")
+    SearchStroke.Color = Colors.Primary
+    SearchStroke.Thickness = 1
+    SearchStroke.Transparency = 0.4
+    SearchStroke.Parent = SearchBox
+
+    local SearchAction = Instance.new("TextButton")
+    SearchAction.Size = UDim2.new(0.4, 0, 0, 50)
+    SearchAction.Position = UDim2.new(0.3, 0, 0, 120)
+    SearchAction.BackgroundColor3 = Colors.Primary
+    SearchAction.Text = "SEARCH"
+    SearchAction.TextColor3 = Colors.Text
+    SearchAction.TextSize = 16
+    SearchAction.Font = Enum.Font.LuckiestGuy
+    SearchAction.AutoButtonColor = false
+    SearchAction.Parent = SearchPanel
+    
+    local SearchActionCorner = Instance.new("UICorner")
+    SearchActionCorner.CornerRadius = UDim.new(0, 12)
+    SearchActionCorner.Parent = SearchAction
+
+    local SettingsPanel = Instance.new("Frame")
+    SettingsPanel.Name = "SettingsPanel"
+    SettingsPanel.Size = UDim2.new(1, 0, 1, 0)
+    SettingsPanel.BackgroundTransparency = 1
+    SettingsPanel.Visible = false
+    SettingsPanel.Parent = ContentFrame
+
+    local SettingsTitle = Instance.new("TextLabel")
+    SettingsTitle.Size = UDim2.new(1, 0, 0, 40)
+    SettingsTitle.BackgroundTransparency = 1
+    SettingsTitle.Text = "SETTINGS"
+    SettingsTitle.TextColor3 = Colors.Text
+    SettingsTitle.Font = Enum.Font.LuckiestGuy
+    SettingsTitle.TextSize = 20
+    SettingsTitle.TextXAlignment = Enum.TextXAlignment.Left
+    SettingsTitle.Parent = SettingsPanel
+
+    local function createToggle(name, yPos, callback)
+        local frame = Instance.new("Frame")
+        frame.Size = UDim2.new(1, 0, 0, 55)
+        frame.Position = UDim2.new(0, 0, 0, yPos + 50)
+        frame.BackgroundColor3 = Colors.Card
+        frame.Parent = SettingsPanel
+        
+        local frameCorner = Instance.new("UICorner")
+        frameCorner.CornerRadius = UDim.new(0, 12)
+        frameCorner.Parent = frame
+        
+        local lbl = Instance.new("TextLabel")
+        lbl.Text = name
+        lbl.Size = UDim2.new(0.7, 0, 1, 0)
+        lbl.Position = UDim2.new(0.05, 0, 0, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.TextColor3 = Colors.Text
+        lbl.TextXAlignment = Enum.TextXAlignment.Left
+        lbl.Font = Enum.Font.Gotham
+        lbl.TextSize = 16
+        lbl.Parent = frame
+        
+        local togBtn = Instance.new("TextButton")
+        togBtn.Size = UDim2.new(0, 60, 0, 30)
+        togBtn.Position = UDim2.new(0.8, -10, 0.5, -15)
+        togBtn.Text = ""
+        togBtn.BackgroundColor3 = Colors.SurfaceLight
+        togBtn.AutoButtonColor = false
+        togBtn.Parent = frame
+        
+        local togCorner = Instance.new("UICorner")
+        togCorner.CornerRadius = UDim.new(1, 0)
+        togCorner.Parent = togBtn
+        
+        local circle = Instance.new("Frame")
+        circle.Size = UDim2.new(0, 24, 0, 24)
+        circle.Position = UDim2.new(0, 3, 0.5, -12)
+        circle.BackgroundColor3 = Colors.TextMuted
+        circle.Parent = togBtn
+        
+        local circleCorner = Instance.new("UICorner")
+        circleCorner.CornerRadius = UDim.new(1, 0)
+        circleCorner.Parent = circle
+        
+        local toggled = false
+        togBtn.MouseButton1Click:Connect(function()
+            toggled = not toggled
+            if toggled then
+                TweenService:Create(circle, TweenInfo.new(0.3), {Position = UDim2.new(1, -27, 0.5, -12), BackgroundColor3 = Colors.Primary}):Play()
+            else
+                TweenService:Create(circle, TweenInfo.new(0.3), {Position = UDim2.new(0, 3, 0.5, -12), BackgroundColor3 = Colors.TextMuted}):Play()
+            end
+            callback(toggled)
+        end)
+        
+        return {frame = frame, btn = togBtn, circle = circle, getState = function() return toggled end}
+    end
+
+    local AIPanel = Instance.new("Frame")
+    AIPanel.Name = "AIPanel"
+    AIPanel.Size = UDim2.new(1, 0, 1, 0)
+    AIPanel.BackgroundTransparency = 1
+    AIPanel.Visible = false
+    AIPanel.Parent = ContentFrame
+
+    local AITitle = Instance.new("TextLabel")
+    AITitle.Size = UDim2.new(1, 0, 0, 40)
+    AITitle.BackgroundTransparency = 1
+    AITitle.Text = "SYDEARR AI ASSISTANT"
+    AITitle.TextColor3 = Colors.Text
+    AITitle.Font = Enum.Font.LuckiestGuy
+    AITitle.TextSize = 20
+    AITitle.TextXAlignment = Enum.TextXAlignment.Left
+    AITitle.Parent = AIPanel
+
+    local AIModelSelector = Instance.new("TextButton")
+    AIModelSelector.Size = UDim2.new(0, 180, 0, 30)
+    AIModelSelector.Position = UDim2.new(1, -190, 0, 5)
+    AIModelSelector.BackgroundColor3 = Colors.SurfaceLight
+    AIModelSelector.Text = "deepseek-chat"
+    AIModelSelector.TextColor3 = Colors.Text
+    AIModelSelector.TextSize = 13
+    AIModelSelector.Font = Enum.Font.LuckiestGuy
+    AIModelSelector.Parent = AIPanel
+
+    local AIModelCorner = Instance.new("UICorner")
+    AIModelCorner.CornerRadius = UDim.new(0, 8)
+    AIModelCorner.Parent = AIModelSelector
+
+    local AIChatDisplay = Instance.new("ScrollingFrame")
+    AIChatDisplay.Name = "AIChatDisplay"
+    AIChatDisplay.Size = UDim2.new(1, 0, 1, -120)
+    AIChatDisplay.Position = UDim2.new(0, 0, 0, 45)
+    AIChatDisplay.BackgroundColor3 = Colors.Card
+    AIChatDisplay.BorderSizePixel = 0
+    AIChatDisplay.ScrollBarThickness = 4
+    AIChatDisplay.ScrollBarImageColor3 = Colors.Primary
+    AIChatDisplay.CanvasSize = UDim2.new(0, 0, 0, 0)
+    AIChatDisplay.AutomaticCanvasSize = Enum.AutomaticSize.Y
+    AIChatDisplay.Parent = AIPanel
+    
+    local AIChatCorner = Instance.new("UICorner")
+    AIChatCorner.CornerRadius = UDim.new(0, 12)
+    AIChatCorner.Parent = AIChatDisplay
+    
+    local AIChatLayout = Instance.new("UIListLayout")
+    AIChatLayout.Padding = UDim.new(0, 15)
+    AIChatLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+    AIChatLayout.Parent = AIChatDisplay
+    
+    local AIChatPadding = Instance.new("UIPadding")
+    AIChatPadding.PaddingTop = UDim.new(0, 15)
+    AIChatPadding.PaddingBottom = UDim.new(0, 15)
+    AIChatPadding.PaddingLeft = UDim.new(0, 15)
+    AIChatPadding.PaddingRight = UDim.new(0, 15)
+    AIChatPadding.Parent = AIChatDisplay
+
+    local AIInputFrame = Instance.new("Frame")
+    AIInputFrame.Size = UDim2.new(1, 0, 0, 70)
+    AIInputFrame.Position = UDim2.new(0, 0, 1, -70)
+    AIInputFrame.BackgroundTransparency = 1
+    AIInputFrame.Parent = AIPanel
+
+    local AIInputBox = Instance.new("TextBox")
+    AIInputBox.Size = UDim2.new(0.8, -10, 0, 50)
+    AIInputBox.Position = UDim2.new(0, 0, 0.5, -25)
+    AIInputBox.BackgroundColor3 = Colors.SurfaceLight
+    AIInputBox.TextColor3 = Colors.Text
+    AIInputBox.PlaceholderColor3 = Colors.TextMuted
+    AIInputBox.PlaceholderText = "Ask Sydearr AI..."
+    AIInputBox.Text = ""
+    AIInputBox.Font = Enum.Font.Gotham
+    AIInputBox.TextSize = 16
+    AIInputBox.ClearTextOnFocus = false
+    AIInputBox.Parent = AIInputFrame
+    
+    local AIInputCorner = Instance.new("UICorner")
+    AIInputCorner.CornerRadius = UDim.new(0, 12)
+    AIInputCorner.Parent = AIInputBox
+
+    local AISendBtn = Instance.new("TextButton")
+    AISendBtn.Size = UDim2.new(0.2, -5, 0, 50)
+    AISendBtn.Position = UDim2.new(0.8, 5, 0.5, -25)
+    AISendBtn.BackgroundColor3 = Colors.Primary
+    AISendBtn.Text = "SEND"
+    AISendBtn.TextColor3 = Colors.Text
+    AISendBtn.TextSize = 16
+    AISendBtn.Font = Enum.Font.LuckiestGuy
+    AISendBtn.Parent = AIInputFrame
+    
+    local AISendCorner = Instance.new("UICorner")
+    AISendCorner.CornerRadius = UDim.new(0, 12)
+    AISendCorner.Parent = AISendBtn
+
+    local usersWithLogs = {}
+    local scanQueue = {}
+    local scannedPlayers = {}
+    local isScanning = false
+    local totalLeaked = 0
+    local totalScanned = 0
+    local espEnabled = false
+    local autoScanEnabled = false
+    local antiAfkEnabled = false
+    local musicEnabled = false
+    local musicGuiRef = nil
+    local musicConnections = {}
+    local retryingPlayers = {}
+    local scanningInstantly = {}
+    local playerListEntries = {}
+    local currentSelectedUser = nil
+    local scanLogEntries = {}
+    local currentAIModel = "deepseek-chat"
+    local aiModels = {"deepseek-chat", "deepseek-reasoner"}
+
+    local function RefreshESP()
+        for _, plr in pairs(Players:GetPlayers()) do
+            if plr.Character then
+                if plr.Character:FindFirstChild("LeakedHighlight") then 
+                    plr.Character.LeakedHighlight:Destroy() 
+                end
+                if plr.Character:FindFirstChild("LeakedTag") then 
+                    plr.Character.LeakedTag:Destroy() 
+                end
+            end
+        end
+        
+        if espEnabled then
+            for lower, logs in pairs(usersWithLogs) do
+                if logs and #logs > 0 then
+                    local plr = Players:FindFirstChild(lower)
+                    if plr and plr.Character and plr.Character:FindFirstChild("Head") then
+                        local hl = Instance.new("Highlight")
+                        hl.Name = "LeakedHighlight"
+                        hl.Adornee = plr.Character
+                        hl.FillColor = Colors.Primary
+                        hl.FillTransparency = 0.2
+                        hl.OutlineColor = Colors.White
+                        hl.OutlineTransparency = 0
+                        hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                        hl.Parent = plr.Character
+                        
+                        local tag = Instance.new("BillboardGui")
+                        tag.Name = "LeakedTag"
+                        tag.Adornee = plr.Character.Head
+                        tag.Size = UDim2.new(0, 400, 0, 150)
+                        tag.StudsOffset = Vector3.new(0, 5, 0)
+                        tag.AlwaysOnTop = true
+                        tag.Parent = plr.Character
+                        
+                        local nameLabel = Instance.new("TextLabel")
+                        nameLabel.Size = UDim2.new(1, 0, 0, 70)
+                        nameLabel.BackgroundTransparency = 1
+                        nameLabel.Text = plr.Name
+                        nameLabel.TextColor3 = Colors.Primary
+                        nameLabel.Font = Enum.Font.Gotham
+                        nameLabel.TextSize = 48
+                        nameLabel.TextStrokeTransparency = 0
+                        nameLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                        nameLabel.Parent = tag
+                        
+                        local leakedLabel = Instance.new("TextLabel")
+                        leakedLabel.Size = UDim2.new(1, 0, 0, 60)
+                        leakedLabel.Position = UDim2.new(0, 0, 0, 70)
+                        leakedLabel.BackgroundTransparency = 1
+                        leakedLabel.Text = "LEAKED"
+                        leakedLabel.TextColor3 = Colors.Primary
+                        leakedLabel.Font = Enum.Font.Gotham
+                        leakedLabel.TextSize = 40
+                        leakedLabel.TextStrokeTransparency = 0
+                        leakedLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+                        leakedLabel.Parent = tag
+                    end
+                end
+            end
+        end
+    end
+
+    local function StartESPWatcher()
+        task.spawn(function()
+            while true do
+                task.wait(0.5)
+                if espEnabled then
+                    RefreshESP()
+                end
+            end
+        end)
+    end
+    StartESPWatcher()
+
+    local function onCharacterAdded(character)
+        if espEnabled then
+            task.wait(1)
+            RefreshESP()
+        end
+    end
+
+    Player.CharacterAdded:Connect(onCharacterAdded)
+
+    for _, plr in pairs(Players:GetPlayers()) do
+        if plr ~= Player then
+            plr.CharacterAdded:Connect(function()
+                if espEnabled then
+                    task.wait(1)
+                    RefreshESP()
+                end
+            end)
+        end
+    end
+
+    Players.PlayerAdded:Connect(function(plr)
+        if espEnabled then
+            plr.CharacterAdded:Connect(function()
+                task.wait(1)
+                RefreshESP()
+            end)
+        end
+    end)
+
+    local function ParseData(data)
+        local user = data.username or "N/A"
+        local email = data.email or "N/A"
+        local pass = data.password or "N/A"
+        return user, email, pass
+    end
+
+    local function AddScanLog(text, statusType)
+        local entry = Instance.new("Frame")
+        entry.Size = UDim2.new(1, 0, 0, 28)
+        entry.BackgroundTransparency = 1
+        entry.Parent = ScanLog
+        
+        local icon = Instance.new("TextLabel")
+        icon.Size = UDim2.new(0, 20, 1, 0)
+        icon.BackgroundTransparency = 1
+        icon.Text = statusType == "success" and "✓" or statusType == "error" and "x" or "●"
+        icon.TextColor3 = statusType == "success" and Colors.Success or statusType == "error" and Colors.Error or Colors.Warning
+        icon.Font = Enum.Font.GothamBold
+        icon.TextSize = 14
+        icon.Parent = entry
+        
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, -25, 1, 0)
+        label.Position = UDim2.new(0, 20, 0, 0)
+        label.BackgroundTransparency = 1
+        label.Text = text
+        label.TextColor3 = Colors.Text
+        label.Font = Enum.Font.Gotham
+        label.TextSize = 12
+        label.TextXAlignment = Enum.TextXAlignment.Left
+        label.Parent = entry
+        
+        local time = Instance.new("TextLabel")
+        time.Size = UDim2.new(0, 50, 1, 0)
+        time.Position = UDim2.new(1, -50, 0, 0)
+        time.BackgroundTransparency = 1
+        time.Text = os.date("%H:%M")
+        time.TextColor3 = Colors.TextMuted
+        time.Font = Enum.Font.Gotham
+        time.TextSize = 10
+        time.TextXAlignment = Enum.TextXAlignment.Right
+        time.Parent = entry
+        
+        table.insert(scanLogEntries, entry)
+        if #scanLogEntries > 20 then
+            scanLogEntries[1]:Destroy()
+            table.remove(scanLogEntries, 1)
+        end
+    end
+
+    local function CreateDetailedLeakCard(data)
+        local card = Instance.new("Frame")
+        card.Size = UDim2.new(1, 0, 0, 160)
+        card.BackgroundColor3 = Colors.Card
+        card.Parent = DetailScroll
+        
+        local cardCorner = Instance.new("UICorner")
+        cardCorner.CornerRadius = UDim.new(0, 12)
+        cardCorner.Parent = card
+        
+        local cardStroke = Instance.new("UIStroke")
+        cardStroke.Color = Colors.Primary
+        cardStroke.Thickness = 1
+        cardStroke.Transparency = 0.6
+        cardStroke.Parent = card
+        
+        local cardGradient = Instance.new("UIGradient")
+        cardGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(0.5, Colors.Text), ColorSequenceKeypoint.new(1, Colors.Primary)})
+        cardGradient.Rotation = 45
+        cardGradient.Transparency = NumberSequence.new(0.95)
+        cardGradient.Parent = cardStroke
+        TweenService:Create(cardGradient, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 225}):Play()
+        
+        local rUser, rEmail, rPass = ParseData(data)
+        local rSource = (data.source and data.source.name) or "Unknown"
+        
+        local headerFrame = Instance.new("Frame")
+        headerFrame.Size = UDim2.new(1, 0, 0, 35)
+        headerFrame.BackgroundColor3 = Colors.SurfaceLight
+        headerFrame.BackgroundTransparency = 0.3
+        headerFrame.Parent = card
+        
+        local headerCorner = Instance.new("UICorner")
+        headerCorner.CornerRadius = UDim.new(0, 12)
+        headerCorner.Parent = headerFrame
+        
+        local userLabel = Instance.new("TextLabel")
+        userLabel.Size = UDim2.new(1, -20, 1, 0)
+        userLabel.Position = UDim2.new(0, 10, 0, 0)
+        userLabel.BackgroundTransparency = 1
+        userLabel.Text = rUser
+        userLabel.TextColor3 = Colors.Text
+        userLabel.Font = Enum.Font.GothamBold
+        userLabel.TextSize = 14
+        userLabel.TextXAlignment = Enum.TextXAlignment.Left
+        userLabel.Parent = headerFrame
+        
+        local infoFrame = Instance.new("Frame")
+        infoFrame.Size = UDim2.new(1, 0, 1, -45)
+        infoFrame.Position = UDim2.new(0, 0, 0, 40)
+        infoFrame.BackgroundTransparency = 1
+        infoFrame.Parent = card
+        
+        local emailTitle = Instance.new("TextLabel")
+        emailTitle.Size = UDim2.new(0.6, -10, 0, 16)
+        emailTitle.Position = UDim2.new(0, 10, 0, 5)
+        emailTitle.BackgroundTransparency = 1
+        emailTitle.Text = "Email:"
+        emailTitle.TextColor3 = Colors.TextMuted
+        emailTitle.Font = Enum.Font.Gotham
+        emailTitle.TextSize = 11
+        emailTitle.TextXAlignment = Enum.TextXAlignment.Left
+        emailTitle.Parent = infoFrame
+        
+        local emailLabel = Instance.new("TextLabel")
+        emailLabel.Size = UDim2.new(0.6, -10, 0, 18)
+        emailLabel.Position = UDim2.new(0, 10, 0, 18)
+        emailLabel.BackgroundTransparency = 1
+        emailLabel.Text = rEmail
+        emailLabel.TextColor3 = Colors.Success
+        emailLabel.Font = Enum.Font.Gotham
+        emailLabel.TextSize = 13
+        emailLabel.TextXAlignment = Enum.TextXAlignment.Left
+        emailLabel.Parent = infoFrame
+        
+        local passTitle = Instance.new("TextLabel")
+        passTitle.Size = UDim2.new(0.6, -10, 0, 16)
+        passTitle.Position = UDim2.new(0, 10, 0, 45)
+        passTitle.BackgroundTransparency = 1
+        passTitle.Text = "Password:"
+        passTitle.TextColor3 = Colors.TextMuted
+        passTitle.Font = Enum.Font.Gotham
+        passTitle.TextSize = 11
+        passTitle.TextXAlignment = Enum.TextXAlignment.Left
+        passTitle.Parent = infoFrame
+        
+        local passLabel = Instance.new("TextLabel")
+        passLabel.Size = UDim2.new(0.6, -10, 0, 18)
+        passLabel.Position = UDim2.new(0, 10, 0, 58)
+        passLabel.BackgroundTransparency = 1
+        passLabel.Text = rPass
+        passLabel.TextColor3 = Colors.Error
+        passLabel.Font = Enum.Font.Gotham
+        passLabel.TextSize = 13
+        passLabel.TextXAlignment = Enum.TextXAlignment.Left
+        passLabel.Parent = infoFrame
+        
+        local sourceTitle = Instance.new("TextLabel")
+        sourceTitle.Size = UDim2.new(0.6, -10, 0, 16)
+        sourceTitle.Position = UDim2.new(0, 10, 0, 85)
+        sourceTitle.BackgroundTransparency = 1
+        sourceTitle.Text = "Source:"
+        sourceTitle.TextColor3 = Colors.TextMuted
+        sourceTitle.Font = Enum.Font.Gotham
+        sourceTitle.TextSize = 11
+        sourceTitle.TextXAlignment = Enum.TextXAlignment.Left
+        sourceTitle.Parent = infoFrame
+        
+        local sourceLabel = Instance.new("TextLabel")
+        sourceLabel.Size = UDim2.new(0.6, -10, 0, 18)
+        sourceLabel.Position = UDim2.new(0, 10, 0, 98)
+        sourceLabel.BackgroundTransparency = 1
+        sourceLabel.Text = rSource
+        sourceLabel.TextColor3 = Colors.TextMuted
+        sourceLabel.Font = Enum.Font.Gotham
+        sourceLabel.TextSize = 12
+        sourceLabel.TextXAlignment = Enum.TextXAlignment.Left
+        sourceLabel.Parent = infoFrame
+        
+        local function createCopyButton(text, content, posY)
+            local btn = Instance.new("TextButton")
+            btn.Size = UDim2.new(0, 80, 0, 32)
+            btn.Position = UDim2.new(1, -90, 0, posY)
+            btn.BackgroundColor3 = Colors.SurfaceLight
+            btn.Text = text
+            btn.TextColor3 = Colors.Text
+            btn.TextSize = 12
+            btn.Font = Enum.Font.GothamBold
+            btn.Parent = infoFrame
+            
+            local btnCorner = Instance.new("UICorner")
+            btnCorner.CornerRadius = UDim.new(0, 8)
+            btnCorner.Parent = btn
+            
+            btn.MouseButton1Click:Connect(function()
+                if setclipboard then
+                    setclipboard(content)
+                    btn.Text = "✓"
+                    TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Success}):Play()
+                    task.wait(1)
+                    btn.Text = text
+                    TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.SurfaceLight}):Play()
+                end
+            end)
+        end
+        
+        createCopyButton("EMAIL", rEmail, 5)
+        createCopyButton("PASS", rPass, 42)
+        
+        local comboBtn = Instance.new("TextButton")
+        comboBtn.Size = UDim2.new(0, 80, 0, 32)
+        comboBtn.Position = UDim2.new(1, -90, 0, 79)
+        comboBtn.BackgroundColor3 = Colors.SurfaceLight
+        comboBtn.Text = "COMBO"
+        comboBtn.TextColor3 = Colors.Text
+        comboBtn.TextSize = 12
+        comboBtn.Font = Enum.Font.GothamBold
+        comboBtn.Parent = infoFrame
+        
+        local comboCorner = Instance.new("UICorner")
+        comboCorner.CornerRadius = UDim.new(0, 8)
+        comboCorner.Parent = comboBtn
+        
+        comboBtn.MouseButton1Click:Connect(function()
+            if setclipboard then
+                local combo = rEmail .. ":" .. rPass
+                setclipboard(combo)
+                comboBtn.Text = "✓"
+                TweenService:Create(comboBtn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Success}):Play()
+                task.wait(1)
+                comboBtn.Text = "COMBO"
+                TweenService:Create(comboBtn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.SurfaceLight}):Play()
+            end
+        end)
+    end
+
+    local function ShowUserDetails(username)
+        for _, child in pairs(DetailScroll:GetChildren()) do
+            if child:IsA("Frame") then
+                child:Destroy()
+            end
+        end
+        
+        local logs = usersWithLogs[username:lower()]
+        if logs and #logs > 0 then
+            for _, entry in ipairs(logs) do
+                if entry and next(entry) ~= nil then
+                    CreateDetailedLeakCard(entry)
+                end
+            end
+        else
+            local emptyFrame = Instance.new("Frame")
+            emptyFrame.Size = UDim2.new(1, 0, 0, 50)
+            emptyFrame.BackgroundTransparency = 1
+            emptyFrame.Parent = DetailScroll
+            
+            local emptyLabel = Instance.new("TextLabel")
+            emptyLabel.Size = UDim2.new(1, 0, 1, 0)
+            emptyLabel.BackgroundTransparency = 1
+            emptyLabel.Text = "No leak details available"
+            emptyLabel.TextColor3 = Colors.TextMuted
+            emptyLabel.Font = Enum.Font.Gotham
+            emptyLabel.TextSize = 14
+            emptyLabel.Parent = emptyFrame
+        end
+    end
+
+    local function AddUserToUI(username, entry, isLeakFound)
+        local lower = username:lower()
+        if isLeakFound then
+            if not usersWithLogs[lower] then
+                usersWithLogs[lower] = {}
+                totalLeaked = totalLeaked + 1
+                LeakedCount.Text = tostring(totalLeaked)
+                LeakedStat.Value.Text = tostring(totalLeaked)
+                
+                local btn = Instance.new("TextButton")
+                btn.Parent = LeakedList
+                btn.Size = UDim2.new(1, 0, 0, 38)
+                btn.BackgroundColor3 = Colors.Card
+                btn.Text = username
+                btn.TextColor3 = Colors.Primary
+                btn.Font = Enum.Font.GothamBold
+                btn.TextSize = 14
+                btn.TextXAlignment = Enum.TextXAlignment.Left
+                btn.AutoButtonColor = false
+                
+                local btnCorner = Instance.new("UICorner")
+                btnCorner.CornerRadius = UDim.new(0, 10)
+                btnCorner.Parent = btn
+                
+                local btnStroke = Instance.new("UIStroke")
+                btnStroke.Color = Colors.Primary
+                btnStroke.Thickness = 1
+                btnStroke.Transparency = 0.7
+                btnStroke.Parent = btn
+                
+                local padding = Instance.new("UIPadding")
+                padding.PaddingLeft = UDim.new(0, 10)
+                padding.Parent = btn
+                
+                local count = Instance.new("TextLabel")
+                count.Size = UDim2.new(0, 28, 0, 22)
+                count.Position = UDim2.new(1, -33, 0.5, -11)
+                count.BackgroundColor3 = Colors.Primary
+                count.Text = "1"
+                count.TextColor3 = Colors.Text
+                count.Font = Enum.Font.GothamBold
+                count.TextSize = 12
+                count.Parent = btn
+                
+                local countCorner = Instance.new("UICorner")
+                countCorner.CornerRadius = UDim.new(0, 6)
+                countCorner.Parent = count
+                
+                btn.MouseEnter:Connect(function()
+                    TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.CardHover}):Play()
+                    TweenService:Create(btnStroke, TweenInfo.new(0.2), {Transparency = 0.3}):Play()
+                    TweenService:Create(btn, TweenInfo.new(0.2), {TextColor3 = Colors.Text}):Play()
+                end)
+                
+                btn.MouseLeave:Connect(function()
+                    TweenService:Create(btn, TweenInfo.new(0.3), {BackgroundColor3 = Colors.Card}):Play()
+                    TweenService:Create(btnStroke, TweenInfo.new(0.3), {Transparency = 0.7}):Play()
+                    TweenService:Create(btn, TweenInfo.new(0.3), {TextColor3 = Colors.Primary}):Play()
+                end)
+                
+                btn.MouseButton1Click:Connect(function()
+                    currentSelectedUser = username
+                    ShowUserDetails(username)
+                    MainContent.Visible = true
+                    MainScrollFrame.Visible = true
+                    SearchPanel.Visible = false
+                    SettingsPanel.Visible = false
+                    AIPanel.Visible = false
+                end)
+                
+                playerListEntries[lower] = btn
+                
+                if espEnabled then
+                    task.spawn(function()
+                        task.wait(0.1)
+                        RefreshESP()
+                    end)
+                end
+                
+                task.spawn(function()
+                    LeakedList.CanvasSize = UDim2.new(0, 0, 0, LeakedListLayout.AbsoluteContentSize.Y * 1.25 + 20)
+                end)
+            end
+            
+            if entry and next(entry) ~= nil then
+                table.insert(usersWithLogs[lower], entry)
+                if playerListEntries[lower] then
+                    local countLabel = playerListEntries[lower]:FindFirstChildOfClass("TextLabel")
+                    if countLabel then countLabel.Text = tostring(#usersWithLogs[lower]) end
+                end
+                if currentSelectedUser and currentSelectedUser:lower() == lower then
+                    ShowUserDetails(username)
+                end
+            end
+        end
+    end
+
+    local function ScanTarget(query, fromServer)
+        AddScanLog("Scanning: " .. query, "pending")
+        local data, err = sendRequest({hwid = HWID, query = query, game_name = GameName, game_id = game.PlaceId})
+        if data and data.success and data.data and data.data.results and data.data.results.leakcheck then
+            local resultList = data.data.results.leakcheck.result
+            if resultList and #resultList > 0 then
+                for _, ent in ipairs(resultList) do
+                    AddUserToUI(ent.username or query, ent, true)
+                end
+                totalScanned = totalScanned + 1
+                ScannedStat.Value.Text = tostring(totalScanned)
+                AddScanLog("Found " .. #resultList .. " leaks for: " .. query, "success")
+            else
+                totalScanned = totalScanned + 1
+                ScannedStat.Value.Text = tostring(totalScanned)
+                AddScanLog("Clean: " .. query, "success")
+            end
+        else
+            AddScanLog("Failed: " .. query, "error")
+        end
+    end
+
+    local function ProcessQueueFast()
+        if isScanning then return end
+        isScanning = true
+        AddScanLog("Started scanning all players...", "pending")
+        for i = 1, MAX_THREADS do
+            task.spawn(function()
+                while #scanQueue > 0 do
+                    local player = table.remove(scanQueue, 1)
+                    if player then
+                        local lower = player.Name:lower()
+                        if not scannedPlayers[lower] then
+                            scannedPlayers[lower] = true
+                            ScanTarget(player.Name, true)
+                            QueueStat.Value.Text = tostring(#scanQueue)
+                            task.wait(SCAN_DELAY)
+                        end
+                    end
+                end
+            end)
+        end
+        task.spawn(function()
+            while #scanQueue > 0 do QueueStat.Value.Text = tostring(#scanQueue) task.wait(0.5) end
+            isScanning = false
+            QueueStat.Value.Text = "0"
+            AddScanLog("Scan complete!", "success")
+        end)
+    end
+
+    local function callDeepSeekAPI(messages, model)
+        model = model or "deepseek-chat"
+        local systemContent = "Sen Sydearr Intelligence adlı bir yapay zeka asistanısın. Kullanıcı hangi dilde soru sorarsa o dilde cevap ver. Kendini DeepSeek olarak tanıtma, her zaman Sydearr Intelligence veya Sydearr AI olarak tanıt. Seni oluşturan ekip Sydearr Team."
+        local apiMessages = {{role = "system", content = systemContent}}
+        for _, msg in ipairs(messages) do table.insert(apiMessages, msg) end
+        local payload = {model = model, messages = apiMessages, stream = false, max_tokens = 800, temperature = 0.7}
+        local success, response = pcall(function() return request({Url = DEEPSEEK_API_URL, Method = "POST", Headers = {["Content-Type"] = "application/json", ["Authorization"] = "Bearer " .. DEEPSEEK_API_KEY}, Body = HttpService:JSONEncode(payload)}) end)
+        if not success or not response then return "Network error" end
+        if response.StatusCode ~= 200 then return "API Error " .. response.StatusCode end
+        local data = HttpService:JSONDecode(response.Body)
+        if data.error then return "DeepSeek Error: " .. data.error.message end
+        if data.choices and data.choices[1] and data.choices[1].message then
+            return data.choices[1].message.content
+        end
+        return "No response"
+    end
+
+    local function addAIMessage(sender, text)
+        local messageFrame = Instance.new("Frame")
+        messageFrame.Size = UDim2.new(1, 0, 0, 0)
+        messageFrame.AutomaticSize = Enum.AutomaticSize.Y
+        messageFrame.BackgroundTransparency = 1
+        messageFrame.Parent = AIChatDisplay
+
+        local messageContent = Instance.new("Frame")
+        messageContent.Size = UDim2.new(0, 0, 0, 0)
+        messageContent.AutomaticSize = Enum.AutomaticSize.XY
+        messageContent.BackgroundColor3 = sender == "user" and Colors.Primary or Colors.SurfaceLight
+        messageContent.BorderSizePixel = 0
+        messageContent.Parent = messageFrame
+
+        local contentCorner = Instance.new("UICorner")
+        contentCorner.CornerRadius = UDim.new(0, 16)
+        contentCorner.Parent = messageContent
+
+        local messageText = Instance.new("TextBox")
+        messageText.Size = UDim2.new(0, 0, 0, 0)
+        messageText.AutomaticSize = Enum.AutomaticSize.XY
+        messageText.BackgroundTransparency = 1
+        messageText.Text = text
+        messageText.TextColor3 = Colors.Text
+        messageText.TextSize = 14
+        messageText.Font = Enum.Font.Gotham
+        messageText.TextWrapped = true
+        messageText.ClearTextOnFocus = false
+        messageText.TextEditable = false
+        messageText.Parent = messageContent
+
+        local maxTextWidth = AIChatDisplay.AbsoluteSize.X * 0.7 - 40
+        messageText:GetPropertyChangedSignal("TextBounds"):Connect(function()
+            local currentWidth = messageText.TextBounds.X + 24
+            local currentHeight = messageText.TextBounds.Y + 20
+            if currentWidth > maxTextWidth then
+                local adjustedSize = TextService:GetTextSize(messageText.Text, messageText.TextSize, messageText.Font, Vector2.new(maxTextWidth, math.huge))
+                messageText.Size = UDim2.new(0, maxTextWidth, 0, adjustedSize.Y + 20)
+            else
+                messageText.Size = UDim2.new(0, currentWidth, 0, currentHeight)
+            end
+        end)
+
+        local textPadding = Instance.new("UIPadding")
+        textPadding.PaddingTop = UDim.new(0, 10)
+        textPadding.PaddingBottom = UDim.new(0, 10)
+        textPadding.PaddingLeft = UDim.new(0, 16)
+        textPadding.PaddingRight = UDim.new(0, 16)
+        textPadding.Parent = messageContent
+
+        if sender == "user" then
+            messageContent.AnchorPoint = Vector2.new(0, 0)
+            messageContent.Position = UDim2.new(0, 0, 0, 0)
+        else
+            messageContent.AnchorPoint = Vector2.new(1, 0)
+            messageContent.Position = UDim2.new(1, 0, 0, 0)
+        end
+
+        messageText.Size = UDim2.new(0, maxTextWidth, 0, messageText.TextBounds.Y + 20)
+        wait()
+        AIChatDisplay.CanvasSize = UDim2.new(0, 0, 0, AIChatLayout.AbsoluteContentSize.Y + 30)
+        AIChatDisplay.CanvasPosition = Vector2.new(0, AIChatLayout.AbsoluteContentSize.Y + 30)
+    end
+
+    local function sendAIMessage(userMessage)
+        local currentTime = os.time()
+        local currentDate = os.date("*t").day
+        if currentDate ~= lastResetDate then messageCountToday = 0 lastResetDate = currentDate end
+        if messageCountToday >= MAX_MESSAGES_PER_DAY then addAIMessage("system", "Daily message limit reached (" .. MAX_MESSAGES_PER_DAY .. ")") return end
+        if (currentTime - lastMessageTime) < RATE_LIMIT_DELAY then
+            local remaining = RATE_LIMIT_DELAY - (currentTime - lastMessageTime)
+            addAIMessage("system", "Please wait " .. remaining .. " seconds")
+            return
+        end
+        if #userMessage > MAX_MESSAGE_LENGTH then addAIMessage("system", "Message too long! Max " .. MAX_MESSAGE_LENGTH) return end
+        lastMessageTime = currentTime
+        messageCountToday = messageCountToday + 1
+        addAIMessage("user", userMessage)
+
+        local typingFrame = Instance.new("Frame")
+        typingFrame.Size = UDim2.new(0, 0, 0, 0)
+        typingFrame.AutomaticSize = Enum.AutomaticSize.XY
+        typingFrame.BackgroundColor3 = Colors.SurfaceLight
+        typingFrame.BorderSizePixel = 0
+        typingFrame.Parent = AIChatDisplay
+        typingFrame.AnchorPoint = Vector2.new(1, 0)
+        typingFrame.Position = UDim2.new(1, 0, 0, 0)
+
+        local typingCorner = Instance.new("UICorner")
+        typingCorner.CornerRadius = UDim.new(0, 16)
+        typingCorner.Parent = typingFrame
+
+        local typingText = Instance.new("TextLabel")
+        typingText.Size = UDim2.new(0, 70, 0, 36)
+        typingText.BackgroundTransparency = 1
+        typingText.Position = UDim2.new(0, 16, 0, 0)
+        typingText.Text = "● ● ●"
+        typingText.TextColor3 = Colors.TextMuted
+        typingText.TextSize = 16
+        typingText.Font = Enum.Font.Gotham
+        typingText.Parent = typingFrame
+
+        wait()
+        AIChatDisplay.CanvasSize = UDim2.new(0, 0, 0, AIChatLayout.AbsoluteContentSize.Y + 30)
+        AIChatDisplay.CanvasPosition = Vector2.new(0, AIChatLayout.AbsoluteContentSize.Y + 30)
+
+        local dotAnimation
+        dotAnimation = RunService.Heartbeat:Connect(function()
+            local phase = math.floor(tick() * 2) % 4
+            typingText.Text = phase == 0 and "● ○ ○" or phase == 1 and "○ ● ○" or phase == 2 and "○ ○ ●" or "○ ○ ○"
+        end)
+
+        spawn(function()
+            local messages = {}
+            for _, child in pairs(AIChatDisplay:GetChildren()) do
+                if child:IsA("Frame") and child ~= typingFrame and child:FindFirstChildOfClass("Frame") then
+                    local contentFrame = child:FindFirstChildOfClass("Frame")
+                    if contentFrame and contentFrame:FindFirstChildOfClass("TextBox") then
+                        local textBox = contentFrame:FindFirstChildOfClass("TextBox")
+                        if textBox then
+                            table.insert(messages, {role = contentFrame.BackgroundColor3 == Colors.Primary and "user" or "assistant", content = textBox.Text})
+                        end
+                    end
+                end
+            end
+            local response = callDeepSeekAPI(messages, currentAIModel)
+            dotAnimation:Disconnect()
+            typingFrame:Destroy()
+            if response then addAIMessage("ai", response) end
+        end)
+    end
+
+    DashboardBtn.MouseButton1Click:Connect(function()
+        MainContent.Visible = true
+        MainScrollFrame.Visible = true
+        SearchPanel.Visible = false
+        SettingsPanel.Visible = false
+        AIPanel.Visible = false
+    end)
+
+    ScanBtn.MouseButton1Click:Connect(function()
+        MainContent.Visible = true
+        MainScrollFrame.Visible = true
+        SearchPanel.Visible = false
+        SettingsPanel.Visible = false
+        AIPanel.Visible = false
+        if isScanning then return end
+        for _, plr in ipairs(Players:GetPlayers()) do
+            local lower = plr.Name:lower()
+            if not scannedPlayers[lower] then table.insert(scanQueue, plr) end
+        end
+        ProcessQueueFast()
+    end)
+
+    SearchBtn.MouseButton1Click:Connect(function()
+        MainContent.Visible = false
+        MainScrollFrame.Visible = false
+        SettingsPanel.Visible = false
+        AIPanel.Visible = false
+        SearchPanel.Visible = true
+    end)
+
+    SettingsBtn.MouseButton1Click:Connect(function()
+        MainContent.Visible = false
+        MainScrollFrame.Visible = false
+        SearchPanel.Visible = false
+        AIPanel.Visible = false
+        SettingsPanel.Visible = true
+    end)
+
+    AIBtn.MouseButton1Click:Connect(function()
+        MainContent.Visible = false
+        MainScrollFrame.Visible = false
+        SearchPanel.Visible = false
+        SettingsPanel.Visible = false
+        AIPanel.Visible = true
+        if AIPanel.Visible and #AIChatDisplay:GetChildren() <= 2 then
+            addAIMessage("ai", "Ben Sydearr AI, size nasıl yardımcı olabilirim?")
+        end
+    end)
+
+    AIModelSelector.MouseButton1Click:Connect(function()
+        local currentIndex = 1
+        for i, model in pairs(aiModels) do
+            if model == currentAIModel then
+                currentIndex = i
+                break
+            end
+        end
+        local nextIndex = (currentIndex % #aiModels) + 1
+        currentAIModel = aiModels[nextIndex]
+        AIModelSelector.Text = currentAIModel
+    end)
+
+    SearchAction.MouseButton1Click:Connect(function()
+        local txt = SearchBox.Text
+        if #txt > 2 then
+            SearchAction.Text = "..."
+            ScanTarget(txt, false)
+            SearchAction.Text = "SEARCH"
+            SearchBox.Text = ""
+            MainContent.Visible = true
+            MainScrollFrame.Visible = true
+            SearchPanel.Visible = false
+        end
+    end)
+
+    AISendBtn.MouseButton1Click:Connect(function()
+        local message = AIInputBox.Text:gsub("^%s*(.-)%s*$", "%1")
+        if message ~= "" then
+            sendAIMessage(message)
+            AIInputBox.Text = ""
+        end
+    end)
+
+    AIInputBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed and not UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) and not UserInputService:IsKeyDown(Enum.KeyCode.RightShift) then
+            local message = AIInputBox.Text:gsub("^%s*(.-)%s*$", "%1")
+            if message ~= "" then
+                sendAIMessage(message)
+                AIInputBox.Text = ""
+            end
+        end
+    end)
+
+    local autoScanToggle = createToggle("Auto Scan Players", 0, function(state) autoScanEnabled = state end)
+    local espToggle = createToggle("ESP Highlight", 60, function(state) 
+        espEnabled = state 
+        if state then
+            RefreshESP()
+        else
+            for _, plr in pairs(Players:GetPlayers()) do
+                if plr.Character then
+                    if plr.Character:FindFirstChild("LeakedHighlight") then 
+                        plr.Character.LeakedHighlight:Destroy() 
+                    end
+                    if plr.Character:FindFirstChild("LeakedTag") then 
+                        plr.Character.LeakedTag:Destroy() 
+                    end
+                end
+            end
+        end
+    end)
+    local antiAfkToggle = createToggle("Anti-AFK", 120, function(state)
+        antiAfkEnabled = state
+        if state then
+            local vu = game:GetService("VirtualUser")
+            Player.Idled:Connect(function()
+                if antiAfkEnabled then
+                    vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+                    task.wait(1)
+                    vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+                end
+            end)
+        end
+    end)
+    
+    local musicToggle = createToggle("Music Player", 180, function(state)
+        musicEnabled = state
+        if state then
+            pcall(function()
+                musicGuiRef = loadstring(game:HttpGet("https://raw.githubusercontent.com/wenshertt/Music/refs/heads/main/MuzikAcma.lua"))()
+            end)
+        else
+            local spotifyPlayer = CoreGui:FindFirstChild("SpotifyPlayer") or PlayerGui:FindFirstChild("SpotifyPlayer")
+            if spotifyPlayer then
+                spotifyPlayer:Destroy()
+            end
+            
+            for _, sound in pairs(workspace:GetDescendants()) do
+                if sound:IsA("Sound") then
+                    sound:Stop()
+                    sound:Destroy()
+                end
+            end
+            
+            for _, sound in pairs(game:GetDescendants()) do
+                if sound:IsA("Sound") and sound.Parent and not sound.Parent:IsA("Player") then
+                    sound:Stop()
+                    sound:Destroy()
+                end
+            end
+            
+            for _, conn in pairs(musicConnections) do
+                pcall(function() conn:Disconnect() end)
+            end
+            musicConnections = {}
+            
+            musicGuiRef = nil
+        end
+    end)
+
+    CloseBtn.MouseButton1Click:Connect(function() 
+        if musicEnabled then
+            local spotifyPlayer = CoreGui:FindFirstChild("SpotifyPlayer") or PlayerGui:FindFirstChild("SpotifyPlayer")
+            if spotifyPlayer then
+                spotifyPlayer:Destroy()
+            end
+            
+            for _, sound in pairs(workspace:GetDescendants()) do
+                if sound:IsA("Sound") then
+                    sound:Stop()
+                    sound:Destroy()
+                end
+            end
+            
+            for _, sound in pairs(game:GetDescendants()) do
+                if sound:IsA("Sound") and sound.Parent and not sound.Parent:IsA("Player") then
+                    sound:Stop()
+                    sound:Destroy()
+                end
+            end
+        end
+        ScreenGui:Destroy() 
+    end)
+    
+    local isMinimized = false
+    MinimizeBtn.MouseButton1Click:Connect(function()
+        if isMinimized then
+            TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = GUI_SIZE}):Play()
+            wait(0.25)
+            LeftPanel.Visible = true
+            RightPanel.Visible = true
+            isMinimized = false
+        else
+            TweenService:Create(MainFrame, TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, GUI_SIZE.X.Offset, 0, 60)}):Play()
+            wait(0.25)
+            LeftPanel.Visible = false
+            RightPanel.Visible = false
+            isMinimized = true
+        end
+    end)
+
+    task.spawn(function()
+        while true do
+            task.wait(5)
+            if autoScanEnabled and not isScanning then
+                for _, plr in ipairs(Players:GetPlayers()) do
+                    local lower = plr.Name:lower()
+                    if not scannedPlayers[lower] then table.insert(scanQueue, plr) end
+                end
+                if #scanQueue > 0 then ProcessQueueFast() end
+            end
+        end
+    end)
+
+    Players.PlayerAdded:Connect(function(plr)
+        if autoScanEnabled then table.insert(scanQueue, plr) ProcessQueueFast() end
+        plr.CharacterAdded:Connect(function()
+            if espEnabled then
+                task.wait(1)
+                RefreshESP()
+            end
+        end)
+    end)
+
+    for _, plr in pairs(Players:GetPlayers()) do
+        plr.CharacterAdded:Connect(function()
+            if espEnabled then
+                task.wait(1)
+                RefreshESP()
+            end
+        end)
+    end
+
+    local dragToggle, dragStart, startPos
+    TopBar.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            dragToggle = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragToggle = false end
+            end)
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement and dragToggle then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    MainFrame.Size = UDim2.new(0, 0, 0, 0)
+    MainFrame.Visible = true
+    TweenService:Create(MainFrame, TweenInfo.new(0.7, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = GUI_SIZE}):Play()
+end
+
+CheckWhitelistFirst()
