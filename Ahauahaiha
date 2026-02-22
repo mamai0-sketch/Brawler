@@ -752,12 +752,35 @@ function LoadMainGUI()
     GameIcon.Size = UDim2.new(0, 100, 0, 100)
     GameIcon.Position = UDim2.new(0, 20, 0.5, -50)
     GameIcon.BackgroundColor3 = Colors.Surface
-    GameIcon.Image = GameIconUrl
+    GameIcon.BorderSizePixel = 0
     GameIcon.Parent = GameInfoFrame
 
     local GameIconCorner = Instance.new("UICorner")
     GameIconCorner.CornerRadius = UDim.new(0, 12)
     GameIconCorner.Parent = GameIcon
+
+    local function GetGameIcon()
+        local id = game.PlaceId
+        local urls = {
+            "https://www.roblox.com/asset-thumbnail/image?assetId="..id.."&width=150&height=150&format=png",
+            "https://thumbnails.roblox.com/v1/games/icons?universeIds="..id.."&size=150x150&format=Png",
+            "https://www.roblox.com/thumbs/asset.ashx?width=150&height=150&assetid="..id
+        }
+        
+        for _, url in ipairs(urls) do
+            local success = pcall(function()
+                GameIcon.Image = url
+            end)
+            if success and GameIcon.Image ~= "" then break end
+            task.wait(0.2)
+        end
+        
+        if GameIcon.Image == "" then
+            GameIcon.BackgroundColor3 = Color3.fromHSV(id%10/10, 0.8, 0.7)
+        end
+    end
+    
+    task.spawn(GetGameIcon)
 
     local GameNameLabel = Instance.new("TextLabel")
     GameNameLabel.Size = UDim2.new(1, -140, 0, 25)
@@ -1117,7 +1140,7 @@ function LoadMainGUI()
                         tag.Name = "LeakedTag"
                         tag.Adornee = plr.Character.Head
                         tag.Size = UDim2.new(0, 400, 0, 150)
-                        tag.StudsOffset = Vector3.new(0, 5, 0)
+                        tag.StudsOffset = Vector3.new(0, 3, 0)
                         tag.AlwaysOnTop = true
                         tag.Parent = plr.Character
                         
@@ -1361,11 +1384,11 @@ function LoadMainGUI()
         sourceLabel.TextXAlignment = Enum.TextXAlignment.Left
         sourceLabel.Parent = infoFrame
         
-        local function createCopyButton(text, content, posY, color)
+        local function createCopyButton(text, content, posY)
             local btn = Instance.new("TextButton")
             btn.Size = UDim2.new(0, 90, 0, 35)
             btn.Position = UDim2.new(1, -100, 0, posY)
-            btn.BackgroundColor3 = color or Colors.SurfaceLight
+            btn.BackgroundColor3 = Colors.Primary
             btn.Text = text
             btn.TextColor3 = Colors.Text
             btn.TextSize = 13
@@ -1376,6 +1399,12 @@ function LoadMainGUI()
             btnCorner.CornerRadius = UDim.new(0, 8)
             btnCorner.Parent = btn
             
+            local btnGradient = Instance.new("UIGradient")
+            btnGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(0.5, Colors.Text), ColorSequenceKeypoint.new(1, Colors.Primary)})
+            btnGradient.Rotation = 45
+            btnGradient.Parent = btn
+            TweenService:Create(btnGradient, TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 225}):Play()
+            
             btn.MouseButton1Click:Connect(function()
                 if setclipboard then
                     setclipboard(content)
@@ -1383,18 +1412,18 @@ function LoadMainGUI()
                     TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Success}):Play()
                     task.wait(1)
                     btn.Text = text
-                    TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = color or Colors.SurfaceLight}):Play()
+                    TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Primary}):Play()
                 end
             end)
         end
         
-        createCopyButton("COPY EMAIL", rEmail, 5, Colors.Primary)
-        createCopyButton("COPY PASS", rPass, 45, Colors.Error)
+        createCopyButton("COPY EMAIL", rEmail, 5)
+        createCopyButton("COPY PASS", rPass, 45)
         
         local comboBtn = Instance.new("TextButton")
         comboBtn.Size = UDim2.new(0, 90, 0, 35)
         comboBtn.Position = UDim2.new(1, -100, 0, 85)
-        comboBtn.BackgroundColor3 = Colors.Success
+        comboBtn.BackgroundColor3 = Colors.Primary
         comboBtn.Text = "COMBO"
         comboBtn.TextColor3 = Colors.Text
         comboBtn.TextSize = 13
@@ -1405,6 +1434,12 @@ function LoadMainGUI()
         comboCorner.CornerRadius = UDim.new(0, 8)
         comboCorner.Parent = comboBtn
         
+        local comboGradient = Instance.new("UIGradient")
+        comboGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(0.5, Colors.Text), ColorSequenceKeypoint.new(1, Colors.Primary)})
+        comboGradient.Rotation = 45
+        comboGradient.Parent = comboBtn
+        TweenService:Create(comboGradient, TweenInfo.new(3, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 225}):Play()
+        
         comboBtn.MouseButton1Click:Connect(function()
             if setclipboard then
                 local combo = rEmail .. ":" .. rPass
@@ -1413,7 +1448,7 @@ function LoadMainGUI()
                 TweenService:Create(comboBtn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Success}):Play()
                 task.wait(1)
                 comboBtn.Text = "COMBO"
-                TweenService:Create(comboBtn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Success}):Play()
+                TweenService:Create(comboBtn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Primary}):Play()
             end
         end)
     end
