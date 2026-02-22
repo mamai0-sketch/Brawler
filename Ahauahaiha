@@ -702,7 +702,7 @@ function LoadMainGUI()
     DetailTitle.Parent = MainContent
 
     local DetailScroll = Instance.new("ScrollingFrame")
-    DetailScroll.Size = UDim2.new(1, 0, 0, 200)
+    DetailScroll.Size = UDim2.new(1, 0, 0, 400)
     DetailScroll.Position = UDim2.new(0, 0, 0, 310)
     DetailScroll.BackgroundColor3 = Colors.Card
     DetailScroll.BorderSizePixel = 0
@@ -729,7 +729,7 @@ function LoadMainGUI()
 
     local GameInfoTitle = Instance.new("TextLabel")
     GameInfoTitle.Size = UDim2.new(1, 0, 0, 30)
-    GameInfoTitle.Position = UDim2.new(0, 0, 0, 520)
+    GameInfoTitle.Position = UDim2.new(0, 0, 0, 720)
     GameInfoTitle.BackgroundTransparency = 1
     GameInfoTitle.Text = "GAME INFO"
     GameInfoTitle.TextColor3 = Colors.TextSoft
@@ -740,7 +740,7 @@ function LoadMainGUI()
 
     local GameInfoFrame = Instance.new("Frame")
     GameInfoFrame.Size = UDim2.new(1, 0, 0, 150)
-    GameInfoFrame.Position = UDim2.new(0, 0, 0, 550)
+    GameInfoFrame.Position = UDim2.new(0, 0, 0, 750)
     GameInfoFrame.BackgroundColor3 = Colors.Card
     GameInfoFrame.Parent = MainContent
 
@@ -1243,7 +1243,7 @@ function LoadMainGUI()
 
     local function CreateDetailedLeakCard(data)
         local card = Instance.new("Frame")
-        card.Size = UDim2.new(1, 0, 0, 160)
+        card.Size = UDim2.new(1, 0, 0, 180)
         card.BackgroundColor3 = Colors.Card
         card.Parent = DetailScroll
         
@@ -1253,14 +1253,14 @@ function LoadMainGUI()
         
         local cardStroke = Instance.new("UIStroke")
         cardStroke.Color = Colors.Primary
-        cardStroke.Thickness = 1
-        cardStroke.Transparency = 0.6
+        cardStroke.Thickness = 2
+        cardStroke.Transparency = 0.4
         cardStroke.Parent = card
         
         local cardGradient = Instance.new("UIGradient")
         cardGradient.Color = ColorSequence.new({ColorSequenceKeypoint.new(0, Colors.Primary), ColorSequenceKeypoint.new(0.5, Colors.Text), ColorSequenceKeypoint.new(1, Colors.Primary)})
         cardGradient.Rotation = 45
-        cardGradient.Transparency = NumberSequence.new(0.95)
+        cardGradient.Transparency = NumberSequence.new(0.9)
         cardGradient.Parent = cardStroke
         TweenService:Create(cardGradient, TweenInfo.new(4, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 225}):Play()
         
@@ -1268,7 +1268,7 @@ function LoadMainGUI()
         local rSource = (data.source and data.source.name) or "Unknown"
         
         local headerFrame = Instance.new("Frame")
-        headerFrame.Size = UDim2.new(1, 0, 0, 35)
+        headerFrame.Size = UDim2.new(1, 0, 0, 40)
         headerFrame.BackgroundColor3 = Colors.SurfaceLight
         headerFrame.BackgroundTransparency = 0.3
         headerFrame.Parent = card
@@ -1284,90 +1284,91 @@ function LoadMainGUI()
         userLabel.Text = rUser
         userLabel.TextColor3 = Colors.Text
         userLabel.Font = Enum.Font.GothamBold
-        userLabel.TextSize = 14
+        userLabel.TextSize = 16
         userLabel.TextXAlignment = Enum.TextXAlignment.Left
         userLabel.Parent = headerFrame
         
         local infoFrame = Instance.new("Frame")
-        infoFrame.Size = UDim2.new(1, 0, 1, -45)
-        infoFrame.Position = UDim2.new(0, 0, 0, 40)
+        infoFrame.Size = UDim2.new(1, 0, 1, -50)
+        infoFrame.Position = UDim2.new(0, 0, 0, 45)
         infoFrame.BackgroundTransparency = 1
         infoFrame.Parent = card
         
         local emailTitle = Instance.new("TextLabel")
-        emailTitle.Size = UDim2.new(0.6, -10, 0, 16)
+        emailTitle.Size = UDim2.new(0.6, -10, 0, 20)
         emailTitle.Position = UDim2.new(0, 10, 0, 5)
         emailTitle.BackgroundTransparency = 1
-        emailTitle.Text = "Email:"
-        emailTitle.TextColor3 = Colors.TextMuted
-        emailTitle.Font = Enum.Font.Gotham
-        emailTitle.TextSize = 11
+        emailTitle.Text = "EMAIL ADDRESS"
+        emailTitle.TextColor3 = Colors.TextSoft
+        emailTitle.Font = Enum.Font.GothamBold
+        emailTitle.TextSize = 12
         emailTitle.TextXAlignment = Enum.TextXAlignment.Left
         emailTitle.Parent = infoFrame
         
         local emailLabel = Instance.new("TextLabel")
-        emailLabel.Size = UDim2.new(0.6, -10, 0, 18)
-        emailLabel.Position = UDim2.new(0, 10, 0, 18)
+        emailLabel.Size = UDim2.new(0.6, -10, 0, 20)
+        emailLabel.Position = UDim2.new(0, 10, 0, 22)
         emailLabel.BackgroundTransparency = 1
         emailLabel.Text = rEmail
         emailLabel.TextColor3 = Colors.Success
         emailLabel.Font = Enum.Font.Gotham
-        emailLabel.TextSize = 13
+        emailLabel.TextSize = 14
         emailLabel.TextXAlignment = Enum.TextXAlignment.Left
+        emailLabel.TextWrapped = true
         emailLabel.Parent = infoFrame
         
         local passTitle = Instance.new("TextLabel")
-        passTitle.Size = UDim2.new(0.6, -10, 0, 16)
-        passTitle.Position = UDim2.new(0, 10, 0, 45)
+        passTitle.Size = UDim2.new(0.6, -10, 0, 20)
+        passTitle.Position = UDim2.new(0, 10, 0, 55)
         passTitle.BackgroundTransparency = 1
-        passTitle.Text = "Password:"
-        passTitle.TextColor3 = Colors.TextMuted
-        passTitle.Font = Enum.Font.Gotham
-        passTitle.TextSize = 11
+        passTitle.Text = "PASSWORD"
+        passTitle.TextColor3 = Colors.TextSoft
+        passTitle.Font = Enum.Font.GothamBold
+        passTitle.TextSize = 12
         passTitle.TextXAlignment = Enum.TextXAlignment.Left
         passTitle.Parent = infoFrame
         
         local passLabel = Instance.new("TextLabel")
-        passLabel.Size = UDim2.new(0.6, -10, 0, 18)
-        passLabel.Position = UDim2.new(0, 10, 0, 58)
+        passLabel.Size = UDim2.new(0.6, -10, 0, 20)
+        passLabel.Position = UDim2.new(0, 10, 0, 72)
         passLabel.BackgroundTransparency = 1
         passLabel.Text = rPass
         passLabel.TextColor3 = Colors.Error
         passLabel.Font = Enum.Font.Gotham
-        passLabel.TextSize = 13
+        passLabel.TextSize = 14
         passLabel.TextXAlignment = Enum.TextXAlignment.Left
         passLabel.Parent = infoFrame
         
         local sourceTitle = Instance.new("TextLabel")
-        sourceTitle.Size = UDim2.new(0.6, -10, 0, 16)
-        sourceTitle.Position = UDim2.new(0, 10, 0, 85)
+        sourceTitle.Size = UDim2.new(0.6, -10, 0, 20)
+        sourceTitle.Position = UDim2.new(0, 10, 0, 105)
         sourceTitle.BackgroundTransparency = 1
-        sourceTitle.Text = "Source:"
-        sourceTitle.TextColor3 = Colors.TextMuted
-        sourceTitle.Font = Enum.Font.Gotham
-        sourceTitle.TextSize = 11
+        sourceTitle.Text = "SOURCE"
+        sourceTitle.TextColor3 = Colors.TextSoft
+        sourceTitle.Font = Enum.Font.GothamBold
+        sourceTitle.TextSize = 12
         sourceTitle.TextXAlignment = Enum.TextXAlignment.Left
         sourceTitle.Parent = infoFrame
         
         local sourceLabel = Instance.new("TextLabel")
-        sourceLabel.Size = UDim2.new(0.6, -10, 0, 18)
-        sourceLabel.Position = UDim2.new(0, 10, 0, 98)
+        sourceLabel.Size = UDim2.new(0.6, -10, 0, 20)
+        sourceLabel.Position = UDim2.new(0, 10, 0, 122)
         sourceLabel.BackgroundTransparency = 1
         sourceLabel.Text = rSource
         sourceLabel.TextColor3 = Colors.TextMuted
         sourceLabel.Font = Enum.Font.Gotham
-        sourceLabel.TextSize = 12
+        sourceLabel.TextSize = 13
         sourceLabel.TextXAlignment = Enum.TextXAlignment.Left
         sourceLabel.Parent = infoFrame
         
-        local function createCopyButton(text, content, posY)
+        local function createCopyButton(text, content, posY, color)
             local btn = Instance.new("TextButton")
-            btn.Size = UDim2.new(0, 80, 0, 32)
-            btn.Position = UDim2.new(1, -90, 0, posY)
-            btn.BackgroundColor3 = Colors.SurfaceLight
+            btn.Size = UDim2.new(0, 90, 0, 35)
+            btn.Position = UDim2.new(1, -100, 0, posY)
+            btn.BackgroundColor3 = color or Colors.SurfaceLight
             btn.Text = text
             btn.TextColor3 = Colors.Text
-            btn.TextSize = 12
+            btn.TextSize = 13
             btn.Font = Enum.Font.GothamBold
             btn.Parent = infoFrame
             
@@ -1382,21 +1383,21 @@ function LoadMainGUI()
                     TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Success}):Play()
                     task.wait(1)
                     btn.Text = text
-                    TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.SurfaceLight}):Play()
+                    TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = color or Colors.SurfaceLight}):Play()
                 end
             end)
         end
         
-        createCopyButton("EMAIL", rEmail, 5)
-        createCopyButton("PASS", rPass, 42)
+        createCopyButton("COPY EMAIL", rEmail, 5, Colors.Primary)
+        createCopyButton("COPY PASS", rPass, 45, Colors.Error)
         
         local comboBtn = Instance.new("TextButton")
-        comboBtn.Size = UDim2.new(0, 80, 0, 32)
-        comboBtn.Position = UDim2.new(1, -90, 0, 79)
-        comboBtn.BackgroundColor3 = Colors.SurfaceLight
+        comboBtn.Size = UDim2.new(0, 90, 0, 35)
+        comboBtn.Position = UDim2.new(1, -100, 0, 85)
+        comboBtn.BackgroundColor3 = Colors.Success
         comboBtn.Text = "COMBO"
         comboBtn.TextColor3 = Colors.Text
-        comboBtn.TextSize = 12
+        comboBtn.TextSize = 13
         comboBtn.Font = Enum.Font.GothamBold
         comboBtn.Parent = infoFrame
         
@@ -1412,7 +1413,7 @@ function LoadMainGUI()
                 TweenService:Create(comboBtn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Success}):Play()
                 task.wait(1)
                 comboBtn.Text = "COMBO"
-                TweenService:Create(comboBtn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.SurfaceLight}):Play()
+                TweenService:Create(comboBtn, TweenInfo.new(0.2), {BackgroundColor3 = Colors.Success}):Play()
             end
         end)
     end
@@ -1433,17 +1434,21 @@ function LoadMainGUI()
             end
         else
             local emptyFrame = Instance.new("Frame")
-            emptyFrame.Size = UDim2.new(1, 0, 0, 50)
-            emptyFrame.BackgroundTransparency = 1
+            emptyFrame.Size = UDim2.new(1, 0, 0, 60)
+            emptyFrame.BackgroundColor3 = Colors.Card
             emptyFrame.Parent = DetailScroll
+            
+            local emptyCorner = Instance.new("UICorner")
+            emptyCorner.CornerRadius = UDim.new(0, 12)
+            emptyCorner.Parent = emptyFrame
             
             local emptyLabel = Instance.new("TextLabel")
             emptyLabel.Size = UDim2.new(1, 0, 1, 0)
             emptyLabel.BackgroundTransparency = 1
-            emptyLabel.Text = "No leak details available"
+            emptyLabel.Text = "⚠️ No leak details available"
             emptyLabel.TextColor3 = Colors.TextMuted
-            emptyLabel.Font = Enum.Font.Gotham
-            emptyLabel.TextSize = 14
+            emptyLabel.Font = Enum.Font.GothamBold
+            emptyLabel.TextSize = 16
             emptyLabel.Parent = emptyFrame
         end
     end
@@ -1459,7 +1464,7 @@ function LoadMainGUI()
                 
                 local btn = Instance.new("TextButton")
                 btn.Parent = LeakedList
-                btn.Size = UDim2.new(1, 0, 0, 38)
+                btn.Size = UDim2.new(1, 0, 0, 42)
                 btn.BackgroundColor3 = Colors.Card
                 btn.Text = username
                 btn.TextColor3 = Colors.Primary
